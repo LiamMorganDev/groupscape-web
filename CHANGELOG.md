@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.491] - 2026-09-13
+
+### Fixed
+- Mortimer's task modifier badge could keep showing on your next slayer task, even after finishing it or switching to a completely different slayer master. It's now only ever shown while your current task is actually assigned by Mortimer.
+
 ## [1.0.486] - 2026-09-12
 
 ### Added

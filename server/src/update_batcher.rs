@@ -247,6 +247,23 @@ fn merge_slayer_task(older: Option<&SlayerTask>, newer: &SlayerTask) -> SlayerTa
     merged.streak_mortimer = older.and_then(|t| t.streak_mortimer);
     merged.streak_wildy = older.and_then(|t| t.streak_wildy);
 
+    // Mortimer's modifier only ever applies to a task he's currently assigned - the plugin's
+    // own SLAYER_MODIFIER_* varbits aren't reliably reset by the game once you leave him, so
+    // trust master_name/has_task here rather than whatever the plugin happened to send. This
+    // also covers completing/skipping/cancelling a task: has_task goes false and the modifier
+    // is cleared right along with it.
+    let is_mortimer_task = merged.has_task
+        && merged
+            .master_name
+            .as_deref()
+            .map(|name| name.trim().eq_ignore_ascii_case("mortimer"))
+            .unwrap_or(false);
+    if !is_mortimer_task {
+        merged.modifier_type = None;
+        merged.modifier_value = None;
+        merged.modifier_negative = None;
+    }
+
     // The plugin only sends `master_name` while a task is active - without it we can't tell
     // which bucket `newer.streak` belongs to, so leave all 3 buckets as carried forward above.
     if let Some(master_name) = &newer.master_name {
@@ -927,6 +944,55 @@ mod tests {
         assert_eq!(merged.streak_normal, Some(41));
         assert_eq!(merged.streak_mortimer, Some(12));
         assert_eq!(merged.streak_wildy, Some(9));
+    }
+
+    #[test]
+    fn test_merge_slayer_task_strips_modifier_on_non_mortimer_master() {
+        // The plugin's own modifier varbits can go stale after leaving Mortimer, so a task from
+        // any other master must never carry a modifier through, regardless of what's sent.
+        let mut newer = make_slayer_task(Some("Duradel"), 42);
+        newer.modifier_type = Some("quantity".to_string());
+        newer.modifier_value = Some(65);
+        newer.modifier_negative = Some(false);
+
+        let merged = merge_slayer_task(None, &newer);
+
+        assert_eq!(merged.modifier_type, None);
+        assert_eq!(merged.modifier_value, None);
+        assert_eq!(merged.modifier_negative, None);
+    }
+
+    #[test]
+    fn test_merge_slayer_task_keeps_modifier_on_mortimer_master() {
+        let mut newer = make_slayer_task(Some("Mortimer"), 12);
+        newer.modifier_type = Some("xp".to_string());
+        newer.modifier_value = Some(10);
+        newer.modifier_negative = Some(false);
+
+        let merged = merge_slayer_task(None, &newer);
+
+        assert_eq!(merged.modifier_type, Some("xp".to_string()));
+        assert_eq!(merged.modifier_value, Some(10));
+        assert_eq!(merged.modifier_negative, Some(false));
+    }
+
+    #[test]
+    fn test_merge_slayer_task_clears_stale_modifier_from_older_row_on_task_close() {
+        // Simulates the DB's shallow jsonb merge scenario: an older stored row still carries
+        // Mortimer's modifier, and the new push reports the task as closed (has_task false).
+        // The merged result (and therefore the explicit JSON null it now serializes to, since
+        // these fields are no longer skip_serializing_if) must clear it, not carry it forward.
+        let mut older = make_slayer_task(Some("Mortimer"), 12);
+        older.modifier_type = Some("points".to_string());
+        older.modifier_value = Some(50);
+        older.modifier_negative = Some(false);
+
+        let newer = make_slayer_task(None, 12);
+        let merged = merge_slayer_task(Some(&older), &newer);
+
+        assert_eq!(merged.modifier_type, None);
+        assert_eq!(merged.modifier_value, None);
+        assert_eq!(merged.modifier_negative, None);
     }
 
     #[test]
