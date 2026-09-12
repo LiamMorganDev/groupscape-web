@@ -11,6 +11,7 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Fixed
 - Switching devices mid-task (e.g. PC to mobile) no longer strands that task as "Superseded" in the Slayer History tab - it's now recorded as completed with its real kill count.
 - Blocking or cancelling a slayer task right after finishing its kill count, but before turning it in, no longer shows up as "Completed" in the History tab with the fee displayed as if it were that task's own reward - it's now correctly labeled Blocked/Cancelled, and a few already-affected rows have been corrected.
+- Notable drop chat notifications now show item and total gp values with comma separators (e.g. "20,000 gp") instead of unformatted numbers.
 
 ## [1.0.476] - 2026-09-11
 

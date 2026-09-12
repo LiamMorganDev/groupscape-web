@@ -790,26 +790,28 @@ impl NotableDropEvent {
     /// can change without a plugin release, and so the same string can be relayed verbatim to
     /// both the roster websocket and a Discord embed.
     pub fn to_message(&self, member_name: &str) -> String {
+        let item_value = format_gp(self.item_value);
+        let total_value = format_gp(self.total_value);
         match self.source_type {
             DropSourceType::Kill => format!(
                 "{} received a drop from {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Chest => format!(
                 "{} opened {} and got a drop: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Pickpocket => format!(
                 "{} pickpocketed a drop from {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Pvp => format!(
                 "{} got a drop from killing {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Unknown => format!(
                 "{} got a drop: {} ({} gp) — total {} gp",
-                member_name, self.item_name, self.item_value, self.total_value
+                member_name, self.item_name, item_value, total_value
             ),
         }
     }
