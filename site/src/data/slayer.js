@@ -273,6 +273,25 @@ class SlayerData {
         return null;
     }
   }
+
+  // Short label for the Stats tab's "Most common modifier" tile - no value/percent (that varies
+  // task-to-task and isn't what's being counted), just which of the 5 modifier kinds it is.
+  modifierLabel(modifierType, modifierNegative) {
+    switch (modifierType) {
+      case "points":
+        return "Points bonus";
+      case "quantity":
+        return modifierNegative ? "Smaller task" : "Bigger task";
+      case "clue_rate":
+        return "Clue rate boost";
+      case "superior_rate":
+        return "Superior rate boost";
+      case "xp":
+        return "XP boost";
+      default:
+        return null;
+    }
+  }
 }
 
 export const slayerData = new SlayerData();

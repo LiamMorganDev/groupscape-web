@@ -10,7 +10,8 @@ use crate::models::{
     GroupSkillData, ItemBonusesResponse, MemberMetricData, MemberSkillData, MetricDataPoint,
     PermissionFlags, PermissionFlagsPatch, PermissionKey, RaidCompletionPayload, RaidDifficulty,
     RaidType, SlayerTask, SlayerTaskHistoryEntry, SlayerTaskHistoryEvent, SlayerTaskHistoryPage,
-    SlayerTaskLeader, SlayerTaskStats, MEMBER_COLOR_PALETTE, RAID_GROUP_TOTAL_LABEL, SHARED_MEMBER,
+    SlayerModifierLeader, SlayerTaskDurationLeader, SlayerTaskLeader, SlayerTaskStats,
+    MEMBER_COLOR_PALETTE, RAID_GROUP_TOTAL_LABEL, SHARED_MEMBER,
 };
 use crate::validators::valid_name;
 use chrono::{DateTime, Utc};
@@ -5972,6 +5973,56 @@ LIMIT 1
         .map(slayer_task_leader_from_row)
         .transpose()?;
 
+    let modifier_stmt = client
+        .prepare_cached(
+            r#"
+SELECT modifier_type, modifier_negative, COUNT(*) AS n
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND modifier_type IS NOT NULL
+GROUP BY modifier_type, modifier_negative
+ORDER BY n DESC
+LIMIT 1
+"#,
+        )
+        .await?;
+    let most_common_modifier = client
+        .query(&modifier_stmt, &[&group_id, &member_name])
+        .await?
+        .first()
+        .map(|row| {
+            Ok::<_, ApiError>(SlayerModifierLeader {
+                modifier_type: row.try_get("modifier_type")?,
+                // `modifier_negative` is only ever set for `"quantity"`; every other modifier
+                // type is a plain positive boost, so a NULL here reads as `false`.
+                modifier_negative: row.try_get::<_, Option<bool>>("modifier_negative")?.unwrap_or(false),
+                count: row.try_get("n")?,
+            })
+        })
+        .transpose()?;
+
+    let fastest_stmt = client
+        .prepare_cached(
+            r#"
+SELECT task_name, EXTRACT(EPOCH FROM (closed_at - assigned_at))::bigint AS seconds
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND status = 'completed' AND closed_at IS NOT NULL
+ORDER BY seconds ASC
+LIMIT 1
+"#,
+        )
+        .await?;
+    let fastest_completed_task = client
+        .query(&fastest_stmt, &[&group_id, &member_name])
+        .await?
+        .first()
+        .map(|row| {
+            Ok::<_, ApiError>(SlayerTaskDurationLeader {
+                name: row.try_get("task_name")?,
+                seconds: row.try_get("seconds")?,
+            })
+        })
+        .transpose()?;
+
     Ok(SlayerTaskStats {
         tasks_completed,
         total_kills,
@@ -5981,6 +6032,8 @@ LIMIT 1
         most_common_task,
         most_common_master,
         most_cancelled_task,
+        most_common_modifier,
+        fastest_completed_task,
     })
 }
 

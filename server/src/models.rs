@@ -236,6 +236,27 @@ pub struct SlayerTaskLeader {
     pub count: i64,
 }
 
+/// The "Most common modifier" tile - same idea as [`SlayerTaskLeader`] but keyed by the
+/// `(modifier_type, modifier_negative)` pair rather than a task/master name, since `"quantity"`'s
+/// up/down directions are opposite effects and must be counted (and displayed) separately.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlayerModifierLeader {
+    pub modifier_type: String,
+    pub modifier_negative: bool,
+    pub count: i64,
+}
+
+/// The "Fastest completion" tile - the completed task with the shortest `closed_at - assigned_at`
+/// span. `seconds` rather than a pre-formatted string so the client picks the duration format
+/// (matches how every other tile leaves display formatting to the client).
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlayerTaskDurationLeader {
+    pub name: String,
+    pub seconds: i64,
+}
+
 /// All-time slayer task stats for one member, `get-slayer-task-stats`.
 #[derive(Serialize, Deserialize)]
 pub struct SlayerTaskStats {
@@ -252,6 +273,10 @@ pub struct SlayerTaskStats {
     pub most_common_master: Option<SlayerTaskLeader>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub most_cancelled_task: Option<SlayerTaskLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub most_common_modifier: Option<SlayerModifierLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fastest_completed_task: Option<SlayerTaskDurationLeader>,
 }
 
 #[derive(Deserialize)]

@@ -1,6 +1,7 @@
 import { BaseElement } from "../base-element/base-element";
 import { api } from "../data/api";
 import { slayerData } from "../data/slayer";
+import { formatDuration } from "../data/time-range";
 
 /**
  * Slayer panel's Stats sub-tab - all-time slayer task stats for one member
@@ -100,6 +101,65 @@ export class SlayerStatsTab extends BaseElement {
     `;
   }
 
+  renderModifierTile(leader) {
+    if (!leader) {
+      return `
+        <div class="slayer-stats-tab__tile">
+          <span class="slayer-stats-tab__tile-label">Most common modifier</span>
+          <span class="slayer-stats-tab__tile-empty">&mdash;</span>
+        </div>
+      `;
+    }
+
+    const icon = slayerData.modifierIconUrl(leader.modifierType, leader.modifierNegative);
+    const label = slayerData.modifierLabel(leader.modifierType, leader.modifierNegative) ?? leader.modifierType;
+    return `
+      <div class="slayer-stats-tab__tile">
+        <span class="slayer-stats-tab__tile-label">Most common modifier</span>
+        <div class="slayer-stats-tab__tile-body">
+          ${
+            icon
+              ? `<img class="slayer-stats-tab__tile-icon slayer-stats-tab__tile-icon--modifier" src="${icon}" alt="${label}" />`
+              : ""
+          }
+          <span>
+            <span class="slayer-stats-tab__tile-name">${label}</span><br />
+            <span class="slayer-stats-tab__tile-count">${leader.count.toLocaleString()} times</span>
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  renderFastestTile(leader) {
+    if (!leader) {
+      return `
+        <div class="slayer-stats-tab__tile">
+          <span class="slayer-stats-tab__tile-label">Fastest completion</span>
+          <span class="slayer-stats-tab__tile-empty">&mdash;</span>
+        </div>
+      `;
+    }
+
+    const icon = slayerData.taskIconUrl(leader.name);
+    const wikiUrl = slayerData.taskWikiUrl(leader.name);
+    const duration = formatDuration(0, leader.seconds * 1000);
+    return `
+      <div class="slayer-stats-tab__tile">
+        <span class="slayer-stats-tab__tile-label">Fastest completion</span>
+        <div class="slayer-stats-tab__tile-body">
+          <a class="slayer-stats-tab__tile-icon-link" href="${wikiUrl}" target="_blank" rel="noopener noreferrer" title="View ${leader.name} on the wiki">
+            <img class="slayer-stats-tab__tile-icon" src="${icon}" alt="${leader.name}" />
+          </a>
+          <span>
+            <a class="slayer-stats-tab__tile-name" href="${wikiUrl}" target="_blank" rel="noopener noreferrer" title="View ${leader.name} on the wiki">${leader.name}</a><br />
+            <span class="slayer-stats-tab__tile-count">${duration}</span>
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
   renderBody() {
     const s = this.stats;
     if (!s) return `<div class="slayer-stats-tab__loading">Loading&hellip;</div>`;
@@ -135,6 +195,8 @@ export class SlayerStatsTab extends BaseElement {
         ${this.renderLeaderTile(s.most_common_task, "Most common task", " times", false)}
         ${this.renderMasterTile(s.most_common_master)}
         ${this.renderLeaderTile(s.most_cancelled_task, "Most cancelled", "&times; cancelled", true)}
+        ${this.renderModifierTile(s.most_common_modifier)}
+        ${this.renderFastestTile(s.fastest_completed_task)}
       </div>
     `;
   }
