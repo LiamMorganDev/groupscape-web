@@ -181,6 +181,18 @@ export class SlayerPanel extends BaseElement {
     `;
   }
 
+  renderModifierBadge(task) {
+    const icon = slayerData.modifierIconUrl(task.modifierType, task.modifierNegative);
+    if (!icon) return "";
+    const tooltip = slayerData.modifierTooltip(task.modifierType, task.modifierValue, task.modifierNegative);
+    return `
+      <span class="slayer-panel__modifier" tabindex="0">
+        <img src="${icon}" alt="${tooltip}" />
+        <span class="slayer-panel__modifier-tip">${tooltip}</span>
+      </span>
+    `;
+  }
+
   renderTask() {
     const task = this.member.slayerTask;
     const complete = this.isTaskComplete();
@@ -206,7 +218,7 @@ export class SlayerPanel extends BaseElement {
           ${complete ? `<span class="slayer-panel__task-check">&#10003;</span>` : ""}
         </div>
         <div class="slayer-panel__task-body">
-          <span class="slayer-panel__task-name">${taskName}</span>
+          <span class="slayer-panel__task-name">${taskName}${this.renderModifierBadge(task)}</span>
           ${task.taskLocation ? `<span class="slayer-panel__task-location">${task.taskLocation}</span>` : ""}
           ${wikiUrl ? `<span class="slayer-panel__wiki-link">View slayer guide &#8599;</span>` : ""}
         </div>

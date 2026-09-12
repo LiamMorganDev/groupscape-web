@@ -876,6 +876,9 @@ mod tests {
             streak_normal: None,
             streak_mortimer: None,
             streak_wildy: None,
+            modifier_type: None,
+            modifier_value: None,
+            modifier_negative: None,
         }
     }
 

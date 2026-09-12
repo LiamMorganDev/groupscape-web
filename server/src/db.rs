@@ -3063,6 +3063,27 @@ CREATE INDEX IF NOT EXISTS activity_event_comments_event_idx ON groupscape.activ
         transaction.commit().await?;
     }
 
+    // Mortimer's task modifier - see `SlayerTask::modifier_type`'s doc comment. Nullable/no
+    // backfill: only tasks assigned after this ships carry a modifier, existing rows just read
+    // back with these columns null.
+    if !has_migration_run(client, "add_slayer_task_history_modifier_columns").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+ALTER TABLE groupscape.slayer_task_history
+ADD COLUMN IF NOT EXISTS modifier_type TEXT,
+ADD COLUMN IF NOT EXISTS modifier_value INT,
+ADD COLUMN IF NOT EXISTS modifier_negative BOOLEAN
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "add_slayer_task_history_modifier_columns").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5574,8 +5595,8 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
         .prepare_cached(
             r#"
 INSERT INTO groupscape.slayer_task_history
-  (group_id, member_name, client_event_id, task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+  (group_id, member_name, client_event_id, task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at, modifier_type, modifier_value, modifier_negative)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 ON CONFLICT (group_id, member_name, client_event_id) DO UPDATE SET
   status = EXCLUDED.status,
   amount_done = EXCLUDED.amount_done,
@@ -5600,6 +5621,9 @@ ON CONFLICT (group_id, member_name, client_event_id) DO UPDATE SET
                 &event.points,
                 &event.assigned_at,
                 &event.closed_at,
+                &event.modifier_type,
+                &event.modifier_value,
+                &event.modifier_negative,
             ],
         )
         .await?;
@@ -5649,6 +5673,9 @@ fn slayer_task_history_entry_from_row(row: &Row) -> Result<SlayerTaskHistoryEntr
         points: row.try_get("points")?,
         assigned_at: row.try_get("assigned_at")?,
         closed_at: row.try_get("closed_at")?,
+        modifier_type: row.try_get("modifier_type")?,
+        modifier_value: row.try_get("modifier_value")?,
+        modifier_negative: row.try_get("modifier_negative")?,
     })
 }
 
@@ -5696,7 +5723,7 @@ WHERE group_id=$1
     let list_stmt = client
         .prepare_cached(
             r#"
-SELECT task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at
+SELECT task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at, modifier_type, modifier_value, modifier_negative
 FROM groupscape.slayer_task_history
 WHERE group_id=$1
   AND member_name=$2

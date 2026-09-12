@@ -174,6 +174,18 @@ export class SlayerHistoryTab extends BaseElement {
     this.pagerStatus.innerHTML = `<strong>${this.page}</strong> / ${this.totalPages}`;
   }
 
+  renderModifierBadge(entry) {
+    const icon = slayerData.modifierIconUrl(entry.modifierType, entry.modifierNegative);
+    if (!icon) return "";
+    const tooltip = slayerData.modifierTooltip(entry.modifierType, entry.modifierValue, entry.modifierNegative);
+    return `
+      <span class="slayer-history-tab__modifier" tabindex="0">
+        <img src="${icon}" alt="${tooltip}" />
+        <span class="slayer-history-tab__modifier-tip">${tooltip}</span>
+      </span>
+    `;
+  }
+
   renderRow(entry) {
     const meta = STATUS_META[entry.status] ?? { label: entry.status, cls: "ns" };
     const taskIcon = slayerData.taskIconUrl(entry.taskName);
@@ -206,9 +218,12 @@ export class SlayerHistoryTab extends BaseElement {
         </a>
         <div class="slayer-history-tab__body">
           <div class="slayer-history-tab__top">
-            <a class="slayer-history-tab__name" href="${taskWikiUrl}" target="_blank" rel="noopener noreferrer" title="View ${
+            <span class="slayer-history-tab__name-wrap">
+              <a class="slayer-history-tab__name" href="${taskWikiUrl}" target="_blank" rel="noopener noreferrer" title="View ${
       entry.taskName
     } on the wiki">${entry.taskName}</a>
+              ${this.renderModifierBadge(entry)}
+            </span>
             <span class="${pointsCls}">${pointsLabel}</span>
           </div>
           <div class="slayer-history-tab__bottom">

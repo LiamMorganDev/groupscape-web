@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.482] - 2026-09-12
+
+### Added
+- Mortimer slayer tasks now show which bonus modifier applies (points, task size, clue rate, superior unique rate, or Slayer XP) as an icon next to the task, both on the Current tab and in the History list.
+
 ## [1.0.476] - 2026-09-11
 
 ### Added

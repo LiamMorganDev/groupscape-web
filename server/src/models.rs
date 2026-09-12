@@ -146,6 +146,17 @@ pub struct SlayerTask {
     pub streak_mortimer: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub streak_wildy: Option<i32>,
+    /// Mortimer's task modifier - one of `"points"`, `"quantity"`, `"clue_rate"`,
+    /// `"superior_rate"`, `"xp"` (see `SlayerTaskState::resolveModifierType`). `modifier_value` is
+    /// the magnitude (a percent for everything but `"points"`, which is a flat point bonus);
+    /// `modifier_negative` only ever applies to `"quantity"` (task size can go up or down, the
+    /// other 4 are always positive boosts). `None` for every non-Mortimer task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One slayer task's lifecycle, from the plugin's `SlayerTaskCloseEvents` accumulator, under its
@@ -173,6 +184,15 @@ pub struct SlayerTaskHistoryEvent {
     pub assigned_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<DateTime<Utc>>,
+    /// Set only by the assignment event, never the close event - see this field's counterpart on
+    /// [`SlayerTask`] and `db::upsert_slayer_task_history_event`'s doc comment for why the close
+    /// event's upsert doesn't touch these columns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One row of `get-slayer-task-history`, newest-first.
@@ -189,6 +209,12 @@ pub struct SlayerTaskHistoryEntry {
     pub assigned_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One page of `get-slayer-task-history` - offset pagination (page/page_size) rather than a
