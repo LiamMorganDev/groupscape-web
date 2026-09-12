@@ -1224,7 +1224,13 @@ pub fn dispatch_raid_webhook(
 /// Discord embed, when the group has a webhook configured and `notify_drops` is on. Notable
 /// drops aren't a `GameEvent` (they're never stored, see `update_group_member`), so this takes
 /// the pre-built message directly rather than matching over the enum like the function above.
-pub fn dispatch_drop_webhook(db_pool: Pool, group_id: i64, message: String, item_id: i32) {
+///
+/// `total_value` is gated against the group's own `drops_min_value` here, independently of the
+/// plugin's `notableDropThreshold` that decided whether this event fired at all - that plugin
+/// config only controls the in-game/websocket chat notification (see the `notable_drops` handler
+/// in `authed.rs`), and must never let a drop below the group's configured Discord threshold
+/// (e.g. a member left at the plugin's low default) leak into the webhook.
+pub fn dispatch_drop_webhook(db_pool: Pool, group_id: i64, message: String, item_id: i32, total_value: i64) {
     tokio::spawn(async move {
         let client = match db_pool.get().await {
             Ok(client) => client,
@@ -1244,7 +1250,7 @@ pub fn dispatch_drop_webhook(db_pool: Pool, group_id: i64, message: String, item
         let Some(webhook_url) = settings.webhook_url else {
             return;
         };
-        if !settings.notify_drops {
+        if !settings.notify_drops || total_value < settings.drops_min_value {
             return;
         }
 
