@@ -3084,6 +3084,45 @@ ADD COLUMN IF NOT EXISTS modifier_negative BOOLEAN
         transaction.commit().await?;
     }
 
+    // One-time correction for a since-fixed plugin bug (GroupScapeTrackerPlugin#closeSlayerTask):
+    // a task closed with `completed` whenever its kill count reached 0 remaining, even when the
+    // player actually blocked/cancelled it (paying a fee) after finishing the kills but before
+    // turning it in - so the fee's negative points landed on a row mislabeled "completed" instead
+    // of "cancelled"/"blocked". Recognizable after the fact because a genuinely completed task
+    // never has negative points (every master's own task reward is >= 0), so any "completed" row
+    // whose points exactly match the flat cancel fee (30) or that master's known block price is
+    // one of these - reclassify it rather than leave the mislabeled row around now that new events
+    // are classified correctly going forward.
+    if !has_migration_run(client, "fix_misclassified_slayer_cancel_block_rows").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+UPDATE groupscape.slayer_task_history
+SET status = CASE WHEN points = -30 THEN 'cancelled' ELSE 'blocked' END
+WHERE status = 'completed'
+  AND amount_done = amount_total
+  AND points < 0
+  AND (
+    points = -30
+    OR (LOWER(master_name) IN ('turael', 'aya', 'spria') AND points = -40)
+    OR (LOWER(master_name) IN ('mazchna', 'achtryn') AND points = -50)
+    OR (LOWER(master_name) = 'vannaka' AND points = -60)
+    OR (LOWER(master_name) = 'chaeldar' AND points = -70)
+    OR (LOWER(master_name) = 'konar quo maten' AND points = -80)
+    OR (LOWER(master_name) IN ('nieve', 'steve') AND points = -90)
+    OR (LOWER(master_name) IN ('duradel', 'kuradal', 'krystilia') AND points = -100)
+    OR (LOWER(master_name) = 'mortimer' AND points = -120)
+  )
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "fix_misclassified_slayer_cancel_block_rows").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
