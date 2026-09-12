@@ -1,7 +1,22 @@
 import { BaseElement } from "../base-element/base-element";
 import { api } from "../data/api";
 import { slayerData } from "../data/slayer";
-import { formatDuration } from "../data/time-range";
+
+// Fastest-completion tile wants exact seconds visible (a one-tick turn-in is the interesting
+// case), unlike `formatDuration` elsewhere in the site which rounds to whole minutes.
+function formatExactDuration(totalSeconds) {
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const hours = totalHours % 24;
+  const days = Math.floor(totalHours / 24);
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 /**
  * Slayer panel's Stats sub-tab - all-time slayer task stats for one member
@@ -143,7 +158,7 @@ export class SlayerStatsTab extends BaseElement {
 
     const icon = slayerData.taskIconUrl(leader.name);
     const wikiUrl = slayerData.taskWikiUrl(leader.name);
-    const duration = formatDuration(0, leader.seconds * 1000);
+    const duration = formatExactDuration(leader.seconds);
     return `
       <div class="slayer-stats-tab__tile">
         <span class="slayer-stats-tab__tile-label">Fastest completion</span>
