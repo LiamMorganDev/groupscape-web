@@ -7,6 +7,9 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Added
 - Mortimer slayer tasks now show which bonus modifier applies (points, task size, clue rate, superior unique rate, or Slayer XP) as an icon next to the task, both on the Current tab and in the History list.
 
+### Fixed
+- Switching devices mid-task (e.g. PC to mobile) no longer strands that task as "Superseded" in the Slayer History tab - it's now recorded as completed with its real kill count.
+
 ## [1.0.476] - 2026-09-11
 
 ### Added

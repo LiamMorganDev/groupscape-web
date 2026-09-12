@@ -5487,7 +5487,7 @@ pub async fn upsert_slayer_task_history_event(
         let dangling_stmt = client
             .prepare_cached(
                 r#"
-SELECT client_event_id, task_name, master_name
+SELECT client_event_id, task_name, master_name, amount_total
 FROM groupscape.slayer_task_history
 WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
   AND status IN ('in_progress', 'not_started')
@@ -5517,9 +5517,11 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
             //      killed, treat it as the completion it actually was (mirroring
             //      `list_slayer_task_history_page`'s read-time overlay).
             // A row that matches neither is genuinely ambiguous (most likely a plugin/client
-            // restart mid-task with no surviving snapshot) - default that to "completed" rather
-            // than "superseded" since finishing normally is by far the more common way to lose a
-            // close event than a paid cancel/block, which the plugin closes synchronously anyway.
+            // restart mid-task with no surviving snapshot - e.g. the player finished the task on
+            // a different client than the one that reported the assignment) - default that to
+            // "completed" with a full kill count rather than "superseded" or a stale/zero
+            // amount_done, since finishing normally is by far the more common way to lose a close
+            // event than a paid cancel/block, which the plugin closes synchronously anyway.
             let incoming_master_is_reset_grantor = SLAYER_RESET_MASTERS
                 .contains(&event.master_name.trim().to_lowercase().as_str());
 
@@ -5547,19 +5549,10 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
 "#,
                 )
                 .await?;
-            let unresolved_stmt = client
-                .prepare_cached(
-                    r#"
-UPDATE groupscape.slayer_task_history
-SET status = 'completed', closed_at = COALESCE(closed_at, now())
-WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
-"#,
-                )
-                .await?;
-
             for row in &dangling_rows {
                 let dangling_event_id: String = row.try_get("client_event_id")?;
                 let dangling_task_name: String = row.try_get("task_name")?;
+                let dangling_amount_total: i32 = row.try_get("amount_total")?;
 
                 if incoming_master_is_reset_grantor {
                     client
@@ -5575,18 +5568,14 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
                         && live.amount_remaining.is_some_and(|remaining| remaining <= 0)
                 }).and_then(live_slayer_task_amount_done);
 
-                if let Some(amount_done) = recovered_amount_done {
-                    client
-                        .execute(
-                            &completed_stmt,
-                            &[&group_id, &member_name, &dangling_event_id, &amount_done],
-                        )
-                        .await?;
-                } else {
-                    client
-                        .execute(&unresolved_stmt, &[&group_id, &member_name, &dangling_event_id])
-                        .await?;
-                }
+                let amount_done = recovered_amount_done.unwrap_or(dangling_amount_total);
+
+                client
+                    .execute(
+                        &completed_stmt,
+                        &[&group_id, &member_name, &dangling_event_id, &amount_done],
+                    )
+                    .await?;
             }
         }
     }
