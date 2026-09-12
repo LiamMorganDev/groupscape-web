@@ -2,6 +2,18 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.486] - 2026-09-12
+
+### Added
+- Mortimer slayer tasks now show which bonus modifier applies (points, task size, clue rate, superior unique rate, or Slayer XP) as an icon next to the task, both on the Current tab and in the History list.
+- Slayer Stats tab now has two new tiles: your most common Mortimer modifier, and your fastest-completed task (down to the exact second).
+
+### Fixed
+- Switching devices mid-task (e.g. PC to mobile) no longer strands that task as "Superseded" in the Slayer History tab - it's now recorded as completed with its real kill count.
+- Blocking or cancelling a slayer task right after finishing its kill count, but before turning it in, no longer shows up as "Completed" in the History tab with the fee displayed as if it were that task's own reward - it's now correctly labeled Blocked/Cancelled, and a few already-affected rows have been corrected.
+- Notable drop chat notifications now show item and total gp values with comma separators (e.g. "20,000 gp") instead of unformatted numbers.
+- Discord drop notifications now respect the group's configured minimum drop value again - they were slipping through at any value crossing a member's own plugin notification threshold, regardless of the group setting.
+
 ## [1.0.476] - 2026-09-11
 
 ### Added

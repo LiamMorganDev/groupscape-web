@@ -10,7 +10,8 @@ use crate::models::{
     GroupSkillData, ItemBonusesResponse, MemberMetricData, MemberSkillData, MetricDataPoint,
     PermissionFlags, PermissionFlagsPatch, PermissionKey, RaidCompletionPayload, RaidDifficulty,
     RaidType, SlayerTask, SlayerTaskHistoryEntry, SlayerTaskHistoryEvent, SlayerTaskHistoryPage,
-    SlayerTaskLeader, SlayerTaskStats, MEMBER_COLOR_PALETTE, RAID_GROUP_TOTAL_LABEL, SHARED_MEMBER,
+    SlayerModifierLeader, SlayerTaskDurationLeader, SlayerTaskLeader, SlayerTaskStats,
+    MEMBER_COLOR_PALETTE, RAID_GROUP_TOTAL_LABEL, SHARED_MEMBER,
 };
 use crate::validators::valid_name;
 use chrono::{DateTime, Utc};
@@ -3063,6 +3064,66 @@ CREATE INDEX IF NOT EXISTS activity_event_comments_event_idx ON groupscape.activ
         transaction.commit().await?;
     }
 
+    // Mortimer's task modifier - see `SlayerTask::modifier_type`'s doc comment. Nullable/no
+    // backfill: only tasks assigned after this ships carry a modifier, existing rows just read
+    // back with these columns null.
+    if !has_migration_run(client, "add_slayer_task_history_modifier_columns").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+ALTER TABLE groupscape.slayer_task_history
+ADD COLUMN IF NOT EXISTS modifier_type TEXT,
+ADD COLUMN IF NOT EXISTS modifier_value INT,
+ADD COLUMN IF NOT EXISTS modifier_negative BOOLEAN
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "add_slayer_task_history_modifier_columns").await?;
+        transaction.commit().await?;
+    }
+
+    // One-time correction for a since-fixed plugin bug (GroupScapeTrackerPlugin#closeSlayerTask):
+    // a task closed with `completed` whenever its kill count reached 0 remaining, even when the
+    // player actually blocked/cancelled it (paying a fee) after finishing the kills but before
+    // turning it in - so the fee's negative points landed on a row mislabeled "completed" instead
+    // of "cancelled"/"blocked". Recognizable after the fact because a genuinely completed task
+    // never has negative points (every master's own task reward is >= 0), so any "completed" row
+    // whose points exactly match the flat cancel fee (30) or that master's known block price is
+    // one of these - reclassify it rather than leave the mislabeled row around now that new events
+    // are classified correctly going forward.
+    if !has_migration_run(client, "fix_misclassified_slayer_cancel_block_rows").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+UPDATE groupscape.slayer_task_history
+SET status = CASE WHEN points = -30 THEN 'cancelled' ELSE 'blocked' END
+WHERE status = 'completed'
+  AND amount_done = amount_total
+  AND points < 0
+  AND (
+    points = -30
+    OR (LOWER(master_name) IN ('turael', 'aya', 'spria') AND points = -40)
+    OR (LOWER(master_name) IN ('mazchna', 'achtryn') AND points = -50)
+    OR (LOWER(master_name) = 'vannaka' AND points = -60)
+    OR (LOWER(master_name) = 'chaeldar' AND points = -70)
+    OR (LOWER(master_name) = 'konar quo maten' AND points = -80)
+    OR (LOWER(master_name) IN ('nieve', 'steve') AND points = -90)
+    OR (LOWER(master_name) IN ('duradel', 'kuradal', 'krystilia') AND points = -100)
+    OR (LOWER(master_name) = 'mortimer' AND points = -120)
+  )
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "fix_misclassified_slayer_cancel_block_rows").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5466,7 +5527,7 @@ pub async fn upsert_slayer_task_history_event(
         let dangling_stmt = client
             .prepare_cached(
                 r#"
-SELECT client_event_id, task_name, master_name
+SELECT client_event_id, task_name, master_name, amount_total
 FROM groupscape.slayer_task_history
 WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
   AND status IN ('in_progress', 'not_started')
@@ -5496,9 +5557,11 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
             //      killed, treat it as the completion it actually was (mirroring
             //      `list_slayer_task_history_page`'s read-time overlay).
             // A row that matches neither is genuinely ambiguous (most likely a plugin/client
-            // restart mid-task with no surviving snapshot) - default that to "completed" rather
-            // than "superseded" since finishing normally is by far the more common way to lose a
-            // close event than a paid cancel/block, which the plugin closes synchronously anyway.
+            // restart mid-task with no surviving snapshot - e.g. the player finished the task on
+            // a different client than the one that reported the assignment) - default that to
+            // "completed" with a full kill count rather than "superseded" or a stale/zero
+            // amount_done, since finishing normally is by far the more common way to lose a close
+            // event than a paid cancel/block, which the plugin closes synchronously anyway.
             let incoming_master_is_reset_grantor = SLAYER_RESET_MASTERS
                 .contains(&event.master_name.trim().to_lowercase().as_str());
 
@@ -5526,19 +5589,10 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
 "#,
                 )
                 .await?;
-            let unresolved_stmt = client
-                .prepare_cached(
-                    r#"
-UPDATE groupscape.slayer_task_history
-SET status = 'completed', closed_at = COALESCE(closed_at, now())
-WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
-"#,
-                )
-                .await?;
-
             for row in &dangling_rows {
                 let dangling_event_id: String = row.try_get("client_event_id")?;
                 let dangling_task_name: String = row.try_get("task_name")?;
+                let dangling_amount_total: i32 = row.try_get("amount_total")?;
 
                 if incoming_master_is_reset_grantor {
                     client
@@ -5554,18 +5608,14 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
                         && live.amount_remaining.is_some_and(|remaining| remaining <= 0)
                 }).and_then(live_slayer_task_amount_done);
 
-                if let Some(amount_done) = recovered_amount_done {
-                    client
-                        .execute(
-                            &completed_stmt,
-                            &[&group_id, &member_name, &dangling_event_id, &amount_done],
-                        )
-                        .await?;
-                } else {
-                    client
-                        .execute(&unresolved_stmt, &[&group_id, &member_name, &dangling_event_id])
-                        .await?;
-                }
+                let amount_done = recovered_amount_done.unwrap_or(dangling_amount_total);
+
+                client
+                    .execute(
+                        &completed_stmt,
+                        &[&group_id, &member_name, &dangling_event_id, &amount_done],
+                    )
+                    .await?;
             }
         }
     }
@@ -5574,8 +5624,8 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
         .prepare_cached(
             r#"
 INSERT INTO groupscape.slayer_task_history
-  (group_id, member_name, client_event_id, task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+  (group_id, member_name, client_event_id, task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at, modifier_type, modifier_value, modifier_negative)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 ON CONFLICT (group_id, member_name, client_event_id) DO UPDATE SET
   status = EXCLUDED.status,
   amount_done = EXCLUDED.amount_done,
@@ -5600,6 +5650,9 @@ ON CONFLICT (group_id, member_name, client_event_id) DO UPDATE SET
                 &event.points,
                 &event.assigned_at,
                 &event.closed_at,
+                &event.modifier_type,
+                &event.modifier_value,
+                &event.modifier_negative,
             ],
         )
         .await?;
@@ -5649,6 +5702,9 @@ fn slayer_task_history_entry_from_row(row: &Row) -> Result<SlayerTaskHistoryEntr
         points: row.try_get("points")?,
         assigned_at: row.try_get("assigned_at")?,
         closed_at: row.try_get("closed_at")?,
+        modifier_type: row.try_get("modifier_type")?,
+        modifier_value: row.try_get("modifier_value")?,
+        modifier_negative: row.try_get("modifier_negative")?,
     })
 }
 
@@ -5696,7 +5752,7 @@ WHERE group_id=$1
     let list_stmt = client
         .prepare_cached(
             r#"
-SELECT task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at
+SELECT task_name, master_name, status, amount_done, amount_total, points, assigned_at, closed_at, modifier_type, modifier_value, modifier_negative
 FROM groupscape.slayer_task_history
 WHERE group_id=$1
   AND member_name=$2
@@ -5917,6 +5973,56 @@ LIMIT 1
         .map(slayer_task_leader_from_row)
         .transpose()?;
 
+    let modifier_stmt = client
+        .prepare_cached(
+            r#"
+SELECT modifier_type, modifier_negative, COUNT(*) AS n
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND modifier_type IS NOT NULL
+GROUP BY modifier_type, modifier_negative
+ORDER BY n DESC
+LIMIT 1
+"#,
+        )
+        .await?;
+    let most_common_modifier = client
+        .query(&modifier_stmt, &[&group_id, &member_name])
+        .await?
+        .first()
+        .map(|row| {
+            Ok::<_, ApiError>(SlayerModifierLeader {
+                modifier_type: row.try_get("modifier_type")?,
+                // `modifier_negative` is only ever set for `"quantity"`; every other modifier
+                // type is a plain positive boost, so a NULL here reads as `false`.
+                modifier_negative: row.try_get::<_, Option<bool>>("modifier_negative")?.unwrap_or(false),
+                count: row.try_get("n")?,
+            })
+        })
+        .transpose()?;
+
+    let fastest_stmt = client
+        .prepare_cached(
+            r#"
+SELECT task_name, EXTRACT(EPOCH FROM (closed_at - assigned_at))::bigint AS seconds
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND status = 'completed' AND closed_at IS NOT NULL
+ORDER BY seconds ASC
+LIMIT 1
+"#,
+        )
+        .await?;
+    let fastest_completed_task = client
+        .query(&fastest_stmt, &[&group_id, &member_name])
+        .await?
+        .first()
+        .map(|row| {
+            Ok::<_, ApiError>(SlayerTaskDurationLeader {
+                name: row.try_get("task_name")?,
+                seconds: row.try_get("seconds")?,
+            })
+        })
+        .transpose()?;
+
     Ok(SlayerTaskStats {
         tasks_completed,
         total_kills,
@@ -5926,6 +6032,8 @@ LIMIT 1
         most_common_task,
         most_common_master,
         most_cancelled_task,
+        most_common_modifier,
+        fastest_completed_task,
     })
 }
 

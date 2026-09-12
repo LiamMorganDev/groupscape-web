@@ -146,6 +146,17 @@ pub struct SlayerTask {
     pub streak_mortimer: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub streak_wildy: Option<i32>,
+    /// Mortimer's task modifier - one of `"points"`, `"quantity"`, `"clue_rate"`,
+    /// `"superior_rate"`, `"xp"` (see `SlayerTaskState::resolveModifierType`). `modifier_value` is
+    /// the magnitude (a percent for everything but `"points"`, which is a flat point bonus);
+    /// `modifier_negative` only ever applies to `"quantity"` (task size can go up or down, the
+    /// other 4 are always positive boosts). `None` for every non-Mortimer task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One slayer task's lifecycle, from the plugin's `SlayerTaskCloseEvents` accumulator, under its
@@ -173,6 +184,15 @@ pub struct SlayerTaskHistoryEvent {
     pub assigned_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<DateTime<Utc>>,
+    /// Set only by the assignment event, never the close event - see this field's counterpart on
+    /// [`SlayerTask`] and `db::upsert_slayer_task_history_event`'s doc comment for why the close
+    /// event's upsert doesn't touch these columns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One row of `get-slayer-task-history`, newest-first.
@@ -189,6 +209,12 @@ pub struct SlayerTaskHistoryEntry {
     pub assigned_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_value: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modifier_negative: Option<bool>,
 }
 
 /// One page of `get-slayer-task-history` - offset pagination (page/page_size) rather than a
@@ -210,6 +236,27 @@ pub struct SlayerTaskLeader {
     pub count: i64,
 }
 
+/// The "Most common modifier" tile - same idea as [`SlayerTaskLeader`] but keyed by the
+/// `(modifier_type, modifier_negative)` pair rather than a task/master name, since `"quantity"`'s
+/// up/down directions are opposite effects and must be counted (and displayed) separately.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlayerModifierLeader {
+    pub modifier_type: String,
+    pub modifier_negative: bool,
+    pub count: i64,
+}
+
+/// The "Fastest completion" tile - the completed task with the shortest `closed_at - assigned_at`
+/// span. `seconds` rather than a pre-formatted string so the client picks the duration format
+/// (matches how every other tile leaves display formatting to the client).
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlayerTaskDurationLeader {
+    pub name: String,
+    pub seconds: i64,
+}
+
 /// All-time slayer task stats for one member, `get-slayer-task-stats`.
 #[derive(Serialize, Deserialize)]
 pub struct SlayerTaskStats {
@@ -226,6 +273,10 @@ pub struct SlayerTaskStats {
     pub most_common_master: Option<SlayerTaskLeader>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub most_cancelled_task: Option<SlayerTaskLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub most_common_modifier: Option<SlayerModifierLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fastest_completed_task: Option<SlayerTaskDurationLeader>,
 }
 
 #[derive(Deserialize)]
@@ -739,26 +790,28 @@ impl NotableDropEvent {
     /// can change without a plugin release, and so the same string can be relayed verbatim to
     /// both the roster websocket and a Discord embed.
     pub fn to_message(&self, member_name: &str) -> String {
+        let item_value = format_gp(self.item_value);
+        let total_value = format_gp(self.total_value);
         match self.source_type {
             DropSourceType::Kill => format!(
                 "{} received a drop from {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Chest => format!(
                 "{} opened {} and got a drop: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Pickpocket => format!(
                 "{} pickpocketed a drop from {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Pvp => format!(
                 "{} got a drop from killing {}: {} ({} gp) — total {} gp",
-                member_name, self.source_name, self.item_name, self.item_value, self.total_value
+                member_name, self.source_name, self.item_name, item_value, total_value
             ),
             DropSourceType::Unknown => format!(
                 "{} got a drop: {} ({} gp) — total {} gp",
-                member_name, self.item_name, self.item_value, self.total_value
+                member_name, self.item_name, item_value, total_value
             ),
         }
     }

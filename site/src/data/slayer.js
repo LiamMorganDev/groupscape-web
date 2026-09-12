@@ -186,6 +186,17 @@ const SLAYER_MONSTER_ICONS = {
 
 const UNKNOWN_TASK_ICON = "/icons/slayer/monsters/unknown-task.png";
 
+// Mortimer task modifiers - see server's SlayerTask::modifier_type doc comment. Only "quantity"
+// has an up/down pair (task size can go either way); the other 4 are always positive boosts, so
+// they share one icon regardless of modifierNegative.
+const MODIFIER_ICONS = {
+  points: "/icons/slayer/modifiers/points.png",
+  quantity: { up: "/icons/slayer/modifiers/quantity-up.png", down: "/icons/slayer/modifiers/quantity-down.png" },
+  clue_rate: "/icons/slayer/modifiers/clue-rate.png",
+  superior_rate: "/icons/slayer/modifiers/superior-rate.png",
+  xp: "/icons/slayer/modifiers/xp.png",
+};
+
 function normalize(name) {
   return `${name ?? ""}`.trim().toLowerCase();
 }
@@ -234,6 +245,52 @@ class SlayerData {
 
   masterWikiUrl(masterName) {
     return `https://oldschool.runescape.wiki/w/${wikiTitle(masterName)}`;
+  }
+
+  // `null` for a task with no modifier.
+  modifierIconUrl(modifierType, modifierNegative) {
+    const icons = MODIFIER_ICONS[modifierType];
+    if (!icons) return null;
+    return typeof icons === "string" ? icons : modifierNegative ? icons.down : icons.up;
+  }
+
+  modifierTooltip(modifierType, modifierValue, modifierNegative) {
+    switch (modifierType) {
+      case "points":
+        return `Task awards +${modifierValue} Slayer points`;
+      case "quantity": {
+        const direction = modifierNegative ? "decreased" : "increased";
+        const sign = modifierNegative ? "−" : "+";
+        return `Task size ${direction} (${sign}${modifierValue})`;
+      }
+      case "clue_rate":
+        return `+${modifierValue}% clue scroll chance`;
+      case "superior_rate":
+        return `+${modifierValue}% superior unique chance`;
+      case "xp":
+        return `+${modifierValue}% Slayer XP`;
+      default:
+        return null;
+    }
+  }
+
+  // Short label for the Stats tab's "Most common modifier" tile - no value/percent (that varies
+  // task-to-task and isn't what's being counted), just which of the 5 modifier kinds it is.
+  modifierLabel(modifierType, modifierNegative) {
+    switch (modifierType) {
+      case "points":
+        return "Points bonus";
+      case "quantity":
+        return modifierNegative ? "Smaller task" : "Bigger task";
+      case "clue_rate":
+        return "Clue rate boost";
+      case "superior_rate":
+        return "Superior rate boost";
+      case "xp":
+        return "XP boost";
+      default:
+        return null;
+    }
   }
 }
 

@@ -885,6 +885,7 @@ pub async fn update_group_member(
                 auth.group_id,
                 message,
                 drop.item_id,
+                drop.total_value,
             );
         }
     }

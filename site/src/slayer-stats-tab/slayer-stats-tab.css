@@ -102,6 +102,13 @@ slayer-stats-tab {
   filter: brightness(1.25);
 }
 
+.slayer-stats-tab__tile-icon--modifier {
+  width: 22px;
+  height: 22px;
+  padding: 4px;
+  border-radius: 5px;
+}
+
 .slayer-stats-tab__tile-name {
   font-size: 12.5px;
   font-weight: 600;
