@@ -5545,8 +5545,13 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
             // The plugin's transition detection is supposed to guarantee a close event always
             // precedes the next assignment (see this fn's doc comment), but a lost close event
             // does happen in practice - most often a Turael/Aya/Spria skip of a task assigned by
-            // some other master, where the plugin-side close raced the reassignment. Two signals
-            // recover the real outcome instead of a blind "superseded" guess:
+            // some other master, where the plugin-side close raced the reassignment. Zero'th
+            // signal, checked before either of the below: if the dangling row already matches
+            // this assignment's task/master/amount_total, it isn't a lost close at all - it's a
+            // resend of the same still-open task (e.g. the member's client switched PC/mobile
+            // mid-task), so the row is left open and the incoming event is dropped rather than
+            // closed into a duplicate row. Otherwise, two signals recover the real outcome
+            // instead of a blind "superseded" guess:
             //   1. If *this* assignment's master is one of the free-skip-granting three, the only
             //      way OSRS lets that happen while another task is still open is that skip - so
             //      every dangling row for this member is a "reset", full stop (mirrors
@@ -5589,10 +5594,26 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
 "#,
                 )
                 .await?;
+            let mut resumed_existing_task = false;
+
             for row in &dangling_rows {
                 let dangling_event_id: String = row.try_get("client_event_id")?;
                 let dangling_task_name: String = row.try_get("task_name")?;
+                let dangling_master_name: String = row.try_get("master_name")?;
                 let dangling_amount_total: i32 = row.try_get("amount_total")?;
+
+                // Same task/master/kill-count as this still-open row: the incoming assignment
+                // is a resend of the task already in progress (e.g. the member's client
+                // switched PC/mobile mid-task and re-reported the same assignment), not a new
+                // task starting. Leave the row open and skip inserting a duplicate below,
+                // rather than force-closing it into a bogus "completed" row.
+                if event.task_name == dangling_task_name
+                    && event.master_name.eq_ignore_ascii_case(&dangling_master_name)
+                    && event.amount_total == dangling_amount_total
+                {
+                    resumed_existing_task = true;
+                    continue;
+                }
 
                 if incoming_master_is_reset_grantor {
                     client
@@ -5616,6 +5637,10 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
                         &[&group_id, &member_name, &dangling_event_id, &amount_done],
                     )
                     .await?;
+            }
+
+            if resumed_existing_task {
+                return Ok(());
             }
         }
     }

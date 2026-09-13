@@ -6,6 +6,7 @@ All notable changes to GroupScape web are logged here, newest first.
 
 ### Fixed
 - Mortimer's task modifier badge could keep showing on your next slayer task, even after finishing it or switching to a completely different slayer master. It's now only ever shown while your current task is actually assigned by Mortimer.
+- Switching devices mid-task could sometimes create duplicate "Completed" entries for the same task in the Slayer History tab. Resuming the same task on a different device is now correctly recognized as a continuation instead of a new completion.
 
 ## [1.0.486] - 2026-09-12
 
