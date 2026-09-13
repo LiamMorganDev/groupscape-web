@@ -1546,6 +1546,8 @@ const EXCLUDED_LOOT_LOG_NPC_NAMES: &[&str] = &[
     "Corrupted dark beast",
     "Crystalline scorpion",
     "Corrupted scorpion",
+    "Corrupted unicorn",
+    "Crystalline unicorn",
     "Ba-Ba",
     "Akkha",
     "Kephri",

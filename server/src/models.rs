@@ -150,12 +150,20 @@ pub struct SlayerTask {
     /// `"superior_rate"`, `"xp"` (see `SlayerTaskState::resolveModifierType`). `modifier_value` is
     /// the magnitude (a percent for everything but `"points"`, which is a flat point bonus);
     /// `modifier_negative` only ever applies to `"quantity"` (task size can go up or down, the
-    /// other 4 are always positive boosts). `None` for every non-Mortimer task.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// other 4 are always positive boosts). `None` for every non-Mortimer task - enforced in
+    /// `update_batcher::merge_slayer_task` regardless of what the plugin sends, since the game's
+    /// own modifier varbits aren't reliably reset once you leave Mortimer.
+    ///
+    /// Deliberately NOT `skip_serializing_if`, unlike the `streak_*` buckets above: those are
+    /// meant to survive the DB's shallow jsonb merge (`a.slayer_task || b.slayer_task`) when a
+    /// flush window doesn't touch them, but a modifier that no longer applies must actively
+    /// overwrite the stored row as an explicit JSON `null`, or that same shallow merge would keep
+    /// the stale value forever.
+    #[serde(default)]
     pub modifier_type: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub modifier_value: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub modifier_negative: Option<bool>,
 }
 
