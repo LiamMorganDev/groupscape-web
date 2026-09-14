@@ -5567,14 +5567,17 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id <> $3
             // "completed" with a full kill count rather than "superseded" or a stale/zero
             // amount_done, since finishing normally is by far the more common way to lose a close
             // event than a paid cancel/block, which the plugin closes synchronously anyway.
+            //
+            // Signal 1 is checked *after* signal 2, not before: Turael/Aya/Spria are also normal
+            // low-level Slayer masters (not just skip-granters), so a member can legitimately
+            // finish a Turael task and get handed another Turael task next with no skip involved.
+            // Trusting a live snapshot that shows the dangling task fully killed always wins over
+            // the master-based guess; only fall back to "reset" when that snapshot doesn't show
+            // completion.
             let incoming_master_is_reset_grantor = SLAYER_RESET_MASTERS
                 .contains(&event.master_name.trim().to_lowercase().as_str());
 
-            let live_task = if incoming_master_is_reset_grantor {
-                None
-            } else {
-                get_live_slayer_task(client, group_id, member_name).await?
-            };
+            let live_task = get_live_slayer_task(client, group_id, member_name).await?;
 
             let reset_stmt = client
                 .prepare_cached(
@@ -5615,19 +5618,19 @@ WHERE group_id=$1 AND member_name=$2 AND client_event_id = $3
                     continue;
                 }
 
-                if incoming_master_is_reset_grantor {
-                    client
-                        .execute(&reset_stmt, &[&group_id, &member_name, &dangling_event_id])
-                        .await?;
-                    continue;
-                }
-
                 // master_name intentionally not checked here either - same restart gap as
                 // `list_slayer_task_history_page`'s overlay above.
                 let recovered_amount_done = live_task.as_ref().filter(|live| {
                     live.task_name.as_deref() == Some(dangling_task_name.as_str())
                         && live.amount_remaining.is_some_and(|remaining| remaining <= 0)
                 }).and_then(live_slayer_task_amount_done);
+
+                if recovered_amount_done.is_none() && incoming_master_is_reset_grantor {
+                    client
+                        .execute(&reset_stmt, &[&group_id, &member_name, &dangling_event_id])
+                        .await?;
+                    continue;
+                }
 
                 let amount_done = recovered_amount_done.unwrap_or(dangling_amount_total);
 

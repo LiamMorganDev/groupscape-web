@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.495] - 2026-09-14
+
+### Fixed
+- Slayer tasks assigned by Turael, Aya, or Spria could show as "Reset" with 0 kills in the Slayer History tab even when you'd fully completed them - this happened whenever your next task also came from one of those masters, since they're your normal early-game masters too, not just a free-skip source. Completed tasks are now correctly recorded even when the following assignment came from the same type of master.
+
 ## [1.0.491] - 2026-09-13
 
 ### Changed
