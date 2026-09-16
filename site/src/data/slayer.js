@@ -224,6 +224,7 @@ function wikiTitle(name) {
 // 404s/redirects wrong. The wiki keeps a dedicated Slayer_task/<Task> page for these instead.
 const TASK_WIKI_OVERRIDES = {
   "warped creatures": "Slayer_task/Warped_creatures",
+  "aberrant spectres": "Aberrant_spectre",
 };
 
 class SlayerData {
