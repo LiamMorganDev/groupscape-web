@@ -47,6 +47,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Slayer task and master names/icons in the History tab now link to their OSRS Wiki page.
 - Slayer task and master names/icons in the Stats tab now link to their OSRS Wiki page.
 - Each row in the Slayer History tab now shows a relative timestamp ("4 minutes ago", "5 days ago") for when the task was assigned (if still open) or closed out (if completed/cancelled/blocked). Hover it for the exact date and time.
+- The activity feed and loot log now recognize kills of Glough, Dad, Agrith-Na-Na, and The Royal Titans as notable boss kills, instead of ignoring them as regular NPCs.
 
 ### Changed
 - The Like button on activity feed items is now a plain text button that sits right next to the comment button, instead of an icon button off on its own.

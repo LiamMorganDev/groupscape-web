@@ -122,4 +122,8 @@ export const BOSS_COMBAT_LEVELS = {
   xamphur: 239,
   brutus: 30,
   demonic_brutus: 1224,
+  // 2026-09 wiki data-refresh: newly classified as notable quest bosses (see NOTABLE_NPCS).
+  glough: 431,
+  dad: 101,
+  agrith_na_na: 146,
 };

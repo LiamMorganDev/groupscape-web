@@ -81,6 +81,10 @@ static NOTABLE_NPCS: LazyLock<HashSet<String>> = LazyLock::new(|| {
         "Crystalline Hunllef",
         "Corrupted Hunllef",
         "Spindel",
+        // Already had a hiscore-style icon (see boss-icons.js's BOSS_ICON_SLUGS) from an earlier
+        // pass, but was never wired up here - reported by the plugin as "The Royal Titans"
+        // (see hiscores.rs's ACTIVITY_DEFS), not a synthesized combo kill.
+        "the_royal_titans",
         // The three moons themselves are deliberately excluded - individual moon kills still
         // ship and count towards KC, but only the combined "Moons of Peril" combo kill (synthesized
         // by the plugin's ComboKillEvents on Lunar Chest loot) should surface in the feed/toasts/
@@ -150,6 +154,9 @@ static NOTABLE_NPCS: LazyLock<HashSet<String>> = LazyLock::new(|| {
         "Ulfric",
         "Arrg",
         "Xamphur",
+        "Glough",
+        "Dad",
+        "Agrith-Na-Na",
     ];
     names.drain(..).map(slugify_npc_name).collect()
 });
