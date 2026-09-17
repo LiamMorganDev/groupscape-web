@@ -13,6 +13,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Maggot King and Shellbane Gryphon boss tasks now show an icon in your Slayer Stats.
 
 ### Changed
+- Chat bubble icon no longer has a square border around its circular background.
 - Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
 - Internal: the OSRS data-refresh tooling can now also detect achievement diary task changes and new slayer task types straight from the wiki, and tracks partial drop-rate coverage for a future cleanup pass.
 - Internal: chat messages older than a week are now automatically deleted server-side instead of being kept indefinitely.
