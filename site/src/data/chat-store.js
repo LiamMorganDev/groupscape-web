@@ -76,7 +76,7 @@ class ChatStore {
   }
 
   async loadBackfill() {
-    const backfill = await api.getChatMessages(0);
+    const backfill = await api.getChatMessages();
     if (!this.enabled) return;
     // Live frames can arrive while the backfill request is in flight - merge rather than
     // overwrite so nothing sent in that window is lost.

@@ -207,8 +207,10 @@ class Api {
     return `${protocol}//${window.location.host}${this.groupScopeUrl}/ws?token=${encodeURIComponent(this.authHeader)}`;
   }
 
-  async getChatMessages(since = 0) {
-    const response = await fetch(`${this.chatMessagesUrl}?since=${since}`, {
+  // No `since` param - the delivery cursor is tracked server-side per-account (spec §6), not
+  // client-supplied, so switching devices doesn't look like a first-ever connect.
+  async getChatMessages() {
+    const response = await fetch(this.chatMessagesUrl, {
       headers: { Authorization: this.authHeader },
     });
     if (!response.ok) return [];
@@ -229,9 +231,9 @@ class Api {
     return response;
   }
 
-  // Advances the account's server-side read cursor (distinct from the `since` delivery cursor
-  // `getChatMessages` backfills against) - see chat-store.js's `markRead`. `messageId` is this
-  // tab's latest-seen message, not just "mark everything read".
+  // Advances the account's server-side read cursor (distinct from the server-side delivery
+  // cursor `getChatMessages` backfills against) - see chat-store.js's `markRead`. `messageId` is
+  // this tab's latest-seen message, not just "mark everything read".
   async markChatRead(messageId) {
     const response = await fetch(this.markChatReadUrl, {
       body: JSON.stringify({ messageId }),

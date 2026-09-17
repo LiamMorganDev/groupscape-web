@@ -369,14 +369,14 @@ describe("api", () => {
       api.setCredentials("iron-team", "secret-token");
     });
 
-    it("getChatMessages fetches with the since cursor and returns the parsed list", async () => {
+    it("getChatMessages fetches against the server-side delivery cursor and returns the parsed list", async () => {
       const messages = [{ messageId: 1, memberName: "Zezima", messageText: "gz", createdAt: "2026-01-01T00:00:00Z" }];
       globalThis.fetch.mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(messages) });
 
-      const actual = await api.getChatMessages(5);
+      const actual = await api.getChatMessages();
 
       expect(actual).toEqual(messages);
-      expect(globalThis.fetch).toHaveBeenCalledWith("/api/group/iron-team/get-chat-messages?since=5", {
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/group/iron-team/get-chat-messages", {
         headers: { Authorization: "secret-token" },
       });
     });

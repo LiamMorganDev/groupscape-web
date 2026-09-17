@@ -10,6 +10,9 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Changed
 - Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
 
+### Fixed
+- Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
+
 ## [1.0.502] - 2026-09-17
 
 ### Added

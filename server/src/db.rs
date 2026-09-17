@@ -3181,6 +3181,30 @@ CREATE TABLE IF NOT EXISTS groupscape.chat_read_cursors (
         transaction.commit().await?;
     }
 
+    // Delivery cursor - per-(group, account), server-side, distinct from the read cursor above.
+    // See the "!gs" chat spec §6: "Cursor is per-account, server-side (not per-device) - switching
+    // devices doesn't look like a first-ever connect."
+    if !has_migration_run(client, "create_chat_delivery_cursors_table").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+CREATE TABLE IF NOT EXISTS groupscape.chat_delivery_cursors (
+  group_id BIGINT NOT NULL REFERENCES groupscape.groups(group_id) ON DELETE CASCADE,
+  account_id BIGINT NOT NULL REFERENCES groupscape.accounts(id) ON DELETE CASCADE,
+  last_delivered_message_id BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (group_id, account_id)
+);
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "create_chat_delivery_cursors_table").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5437,6 +5461,59 @@ pub async fn list_activity_comments(
             })
         })
         .collect()
+}
+
+/// Reads the caller's server-side delivery cursor (§6) - `0` for an account that's never
+/// backfilled this group before, same "brand-new" semantics `list_chat_messages_since` already
+/// gives `since_message_id = 0`.
+pub async fn get_chat_delivery_cursor(
+    client: &Client,
+    group_id: i64,
+    account_id: i64,
+) -> Result<i64, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+SELECT last_delivered_message_id FROM groupscape.chat_delivery_cursors
+WHERE group_id = $1 AND account_id = $2
+"#,
+        )
+        .await?;
+    let row = client
+        .query_opt(&stmt, &[&group_id, &account_id])
+        .await
+        .map_err(ApiError::AdvanceChatDeliveryCursorError)?;
+    Ok(match row {
+        Some(row) => row.try_get("last_delivered_message_id")?,
+        None => 0,
+    })
+}
+
+/// Advances the caller's delivery cursor to `message_id`, never backwards - same `GREATEST`
+/// upsert pattern as `advance_chat_read_cursor`, guarding against a stale/out-of-order call (e.g.
+/// two of the account's sessions backfilling at once) rewinding it. See spec §6.
+pub async fn advance_chat_delivery_cursor(
+    client: &Client,
+    group_id: i64,
+    account_id: i64,
+    message_id: i64,
+) -> Result<(), ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+INSERT INTO groupscape.chat_delivery_cursors (group_id, account_id, last_delivered_message_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (group_id, account_id) DO UPDATE
+SET last_delivered_message_id = GREATEST(chat_delivery_cursors.last_delivered_message_id, EXCLUDED.last_delivered_message_id),
+    updated_at = now()
+"#,
+        )
+        .await?;
+    client
+        .execute(&stmt, &[&group_id, &account_id, &message_id])
+        .await
+        .map_err(ApiError::AdvanceChatDeliveryCursorError)?;
+    Ok(())
 }
 
 /// Backfills messages strictly newer than `since_message_id`, oldest-first, capped at
