@@ -143,6 +143,7 @@ async fn main() -> std::io::Result<()> {
     unauthed::start_bank_value_snapshotter(pool.clone());
     unauthed::start_bank_value_aggregator(pool.clone());
     unauthed::start_loot_log_cleanup(pool.clone());
+    unauthed::start_chat_cleanup(pool.clone());
 
     let update_batcher_pool = config.pg.create_pool(None, NoTls).unwrap();
     let (tx, rx) = mpsc::channel::<models::GroupMember>(10000);

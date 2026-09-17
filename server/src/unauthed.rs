@@ -241,6 +241,34 @@ pub fn start_loot_log_cleanup(db_pool: Pool) {
     });
 }
 
+/// Purges `groupscape.chat_messages` rows older than `CHAT_HISTORY_DAYS` - keeps the table
+/// bounded now that `get_chat_messages` always reads the same rolling window rather than
+/// advancing a per-account delivery cursor. Runs hourly, matching `start_loot_log_cleanup`.
+pub fn start_chat_cleanup(db_pool: Pool) {
+    task::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(3600));
+
+        loop {
+            interval.tick().await;
+
+            match db_pool.get().await {
+                Ok(client) => match db::prune_old_chat_messages(&client).await {
+                    Ok(pruned) if pruned > 0 => {
+                        log::info!("Pruned {} old chat message(s)", pruned);
+                    }
+                    Ok(_) => (),
+                    Err(err) => {
+                        log::error!("Failed to prune old chat messages: {}", err);
+                    }
+                },
+                Err(err) => {
+                    log::error!("Failed to get db client: {}", err);
+                }
+            }
+        }
+    });
+}
+
 /// Parses the same cached GE-price snapshot `GET /ge-prices` serves as raw JSON into a map,
 /// for server-side joins (e.g. loot summary/split value calculations) instead of re-fetching.
 pub fn get_ge_prices_map() -> GEPrices {

@@ -1058,8 +1058,15 @@ pub struct ChatMessage {
 }
 
 /// Backfill cap - see the "Chat history and backfill behavior" spec ticket. Bounds payload size
-/// after a long gap between connects.
+/// for a group chatty enough to post more than this within `CHAT_HISTORY_DAYS`.
 pub const CHAT_BACKFILL_CAP: i64 = 200;
+/// Rolling history window `get_chat_messages` reads from and `prune_old_chat_messages` reaps
+/// against - single source of truth for both so the window a client can ever see and the point
+/// past which rows are actually deleted stay in lockstep. See the "Chat history and backfill
+/// behavior" spec ticket §6 (superseded: a fixed window replaced the old per-account delivery
+/// cursor - every session now sees the same last-`CHAT_HISTORY_DAYS`-days set regardless of
+/// read/delivery state).
+pub const CHAT_HISTORY_DAYS: i64 = 7;
 /// Truncated silently, not rejected - see the "Message formatting and length limits" spec ticket.
 pub const CHAT_MESSAGE_MAX_LEN: usize = 150;
 

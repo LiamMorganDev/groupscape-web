@@ -183,8 +183,6 @@ pub enum ApiError {
     #[from(ignore)]
     AdvanceChatReadCursorError(tokio_postgres::error::Error),
     #[from(ignore)]
-    AdvanceChatDeliveryCursorError(tokio_postgres::error::Error),
-    #[from(ignore)]
     DeleteChatMessageError(tokio_postgres::error::Error),
     ChatMessageNotFoundError,
 }
@@ -457,9 +455,6 @@ impl ResponseError for ApiError {
                 .body("Too many chat messages - slow down and try again shortly"),
             ApiError::AdvanceChatReadCursorError(ref err) => {
                 handle_pg_error(err, "AdvanceChatReadCursorError")
-            }
-            ApiError::AdvanceChatDeliveryCursorError(ref err) => {
-                handle_pg_error(err, "AdvanceChatDeliveryCursorError")
             }
             ApiError::DeleteChatMessageError(ref err) => {
                 handle_pg_error(err, "DeleteChatMessageError")

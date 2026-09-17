@@ -5,6 +5,7 @@ All notable changes to GroupScape web are logged here, newest first.
 ## [1.0.503] - 2026-09-17
 
 ### Added
+- Group chat now marks unread messages with a "New" divider line, so it's clear where you left off.
 - Group chat now remembers what you've already read across every device and browser tab you're signed into. Read a message on your phone or in one tab, and the "new message" dot clears everywhere else that's open and focused - no more re-reading the same messages on every device.
 - Slayer Stats tab now shows your most common boss task and a total count of boss tasks assigned.
 - Slayer Stats tab now also shows your total boss task kill count alongside the boss task count.
@@ -14,8 +15,10 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Changed
 - Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
 - Internal: the OSRS data-refresh tooling can now also detect achievement diary task changes and new slayer task types straight from the wiki, and tracks partial drop-rate coverage for a future cleanup pass.
+- Internal: chat messages older than a week are now automatically deleted server-side instead of being kept indefinitely.
 
 ### Fixed
+- Group chat now always shows your full message history from the past week when you open it, instead of sometimes appearing empty after a refresh even though nothing was actually deleted.
 - Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
 - Group chat bubble and window are now clickable on the map page - they used to be completely unresponsive there (couldn't open, close, or send a message) since the map view was silently swallowing clicks meant for it.
 - Group chat window can actually be closed again - the X button and the chat bubble icon had stopped closing it on every page, not just the map.

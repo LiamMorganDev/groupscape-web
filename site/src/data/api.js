@@ -222,8 +222,9 @@ class Api {
     return resolved.toString();
   }
 
-  // No `since` param - the delivery cursor is tracked server-side per-account (spec §6), not
-  // client-supplied, so switching devices doesn't look like a first-ever connect.
+  // No `since` param - the server always returns the same rolling last-week window for the group
+  // (spec §6), regardless of this account's read/delivery state, so a refresh never loses
+  // messages it already saw.
   async getChatMessages() {
     const response = await fetch(this.chatMessagesUrl, {
       headers: {
@@ -249,9 +250,8 @@ class Api {
     return response;
   }
 
-  // Advances the account's server-side read cursor (distinct from the server-side delivery
-  // cursor `getChatMessages` backfills against) - see chat-store.js's `markRead`. `messageId` is
-  // this tab's latest-seen message, not just "mark everything read".
+  // Advances the account's server-side read cursor - see chat-store.js's `markRead`. `messageId`
+  // is this tab's latest-seen message, not just "mark everything read".
   async markChatRead(messageId) {
     const response = await fetch(this.markChatReadUrl, {
       body: JSON.stringify({ messageId }),

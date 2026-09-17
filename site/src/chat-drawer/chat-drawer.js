@@ -204,13 +204,22 @@ export class ChatDrawer extends BaseElement {
     );
   }
 
+  // Divider marks the boundary between messages read before this render and everything after -
+  // frozen at whatever `lastReadMessageId()` was when this ran, so it doesn't jump mid-session
+  // when `open()`'s `maybeMarkRead()` immediately advances the cursor (see that method's doc
+  // comment). Suppressed for a cursor of 0 (never read anything in this group yet - nothing
+  // "already read" to draw a boundary under) and when nothing is unread.
   renderMessages() {
     const filtered = this.filteredMessages();
     this.emptyState.hidden = filtered.length > 0;
     const wasScrolledToBottom = this.list.scrollHeight - this.list.scrollTop - this.list.clientHeight < 40;
 
+    const lastRead = chatStore.lastReadMessageId();
+    const firstUnreadIndex = filtered.findIndex((m) => m.messageId > lastRead);
+    const showDivider = lastRead > 0 && firstUnreadIndex > 0;
+
     this.list.innerHTML = filtered
-      .map((m) => {
+      .map((m, index) => {
         const name = m.memberName ? escapeHtml(m.memberName) : "System";
         const icon =
           m.memberName && groupData.members.has(m.memberName)
@@ -221,7 +230,12 @@ export class ChatDrawer extends BaseElement {
         const deleteButton = this.isAdmin
           ? `<button class="chat-drawer__message-delete" type="button" data-message-id="${m.messageId}" aria-label="Delete message">&times;</button>`
           : "";
+        const divider =
+          index === firstUnreadIndex && showDivider
+            ? `<div class="chat-drawer__unread-divider"><span>New</span></div>`
+            : "";
         return `
+          ${divider}
           <div class="${rowClass}">
             <span class="chat-drawer__message-time">${formatTime(m.createdAt)}</span>
             <span class="chat-drawer__message-name" style="color: ${memberColor(m.memberName)}">${icon}${name}:</span>

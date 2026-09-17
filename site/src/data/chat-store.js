@@ -18,7 +18,8 @@ function normalize(raw) {
   };
 }
 
-// Backs the chat drawer: owns the ~200-message backfill + live socket merge, and tracks unread
+// Backs the chat drawer: owns the last-week backfill (up to ~200 messages) + live socket merge,
+// and tracks unread
 // state two ways - a last-read message id in localStorage (instant, works offline, this browser
 // only) mirrored to the server's read cursor via `POST /mark-chat-read` (spec §6). The localStorage
 // write happens first and drives this tab's own badge immediately; the server call is fire-and-

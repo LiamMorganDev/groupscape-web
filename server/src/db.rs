@@ -3206,6 +3206,20 @@ CREATE TABLE IF NOT EXISTS groupscape.chat_delivery_cursors (
         transaction.commit().await?;
     }
 
+    // Superseded by a fixed rolling history window (`list_recent_chat_messages`,
+    // `CHAT_HISTORY_DAYS`) - a delivery cursor made a refresh/reconnect look like "nothing new"
+    // for messages the caller had already seen, which is exactly the staleness the fixed window
+    // was built to avoid. See the "Chat history and backfill behavior" spec ticket §6.
+    if !has_migration_run(client, "drop_chat_delivery_cursors_table").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute("DROP TABLE IF EXISTS groupscape.chat_delivery_cursors", &[])
+            .await?;
+
+        commit_migration(&transaction, "drop_chat_delivery_cursors_table").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5464,67 +5478,14 @@ pub async fn list_activity_comments(
         .collect()
 }
 
-/// Reads the caller's server-side delivery cursor (§6) - `0` for an account that's never
-/// backfilled this group before, same "brand-new" semantics `list_chat_messages_since` already
-/// gives `since_message_id = 0`.
-pub async fn get_chat_delivery_cursor(
+/// Returns the last `CHAT_HISTORY_DAYS` days of a group's chat, oldest-first, capped at
+/// `CHAT_BACKFILL_CAP` - see the "Chat history and backfill behavior" spec ticket §6. Ignores the
+/// caller's read/delivery state entirely (there is no more per-account delivery cursor - see
+/// `CHAT_HISTORY_DAYS`'s doc comment), so every session backfilling this group sees the same
+/// rolling window, including a refresh that's already seen everything in it.
+pub async fn list_recent_chat_messages(
     client: &Client,
     group_id: i64,
-    account_id: i64,
-) -> Result<i64, ApiError> {
-    let stmt = client
-        .prepare_cached(
-            r#"
-SELECT last_delivered_message_id FROM groupscape.chat_delivery_cursors
-WHERE group_id = $1 AND account_id = $2
-"#,
-        )
-        .await?;
-    let row = client
-        .query_opt(&stmt, &[&group_id, &account_id])
-        .await
-        .map_err(ApiError::AdvanceChatDeliveryCursorError)?;
-    Ok(match row {
-        Some(row) => row.try_get("last_delivered_message_id")?,
-        None => 0,
-    })
-}
-
-/// Advances the caller's delivery cursor to `message_id`, never backwards - same `GREATEST`
-/// upsert pattern as `advance_chat_read_cursor`, guarding against a stale/out-of-order call (e.g.
-/// two of the account's sessions backfilling at once) rewinding it. See spec §6.
-pub async fn advance_chat_delivery_cursor(
-    client: &Client,
-    group_id: i64,
-    account_id: i64,
-    message_id: i64,
-) -> Result<(), ApiError> {
-    let stmt = client
-        .prepare_cached(
-            r#"
-INSERT INTO groupscape.chat_delivery_cursors (group_id, account_id, last_delivered_message_id)
-VALUES ($1, $2, $3)
-ON CONFLICT (group_id, account_id) DO UPDATE
-SET last_delivered_message_id = GREATEST(chat_delivery_cursors.last_delivered_message_id, EXCLUDED.last_delivered_message_id),
-    updated_at = now()
-"#,
-        )
-        .await?;
-    client
-        .execute(&stmt, &[&group_id, &account_id, &message_id])
-        .await
-        .map_err(ApiError::AdvanceChatDeliveryCursorError)?;
-    Ok(())
-}
-
-/// Backfills messages strictly newer than `since_message_id`, oldest-first, capped at
-/// `CHAT_BACKFILL_CAP` - see the "Chat history and backfill behavior" spec ticket. `since_message_id
-/// = 0` (a brand-new account's cursor) returns the most recent `CHAT_BACKFILL_CAP` messages rather
-/// than the group's entire history.
-pub async fn list_chat_messages_since(
-    client: &Client,
-    group_id: i64,
-    since_message_id: i64,
 ) -> Result<Vec<crate::models::ChatMessage>, ApiError> {
     let stmt = client
         .prepare_cached(
@@ -5532,7 +5493,7 @@ pub async fn list_chat_messages_since(
 SELECT message_id, member_name, message_text, created_at FROM (
   SELECT message_id, member_name, message_text, created_at
   FROM groupscape.chat_messages
-  WHERE group_id = $1 AND message_id > $2
+  WHERE group_id = $1 AND created_at > now() - ($2::bigint * interval '1 day')
   ORDER BY message_id DESC
   LIMIT $3
 ) capped
@@ -5541,7 +5502,10 @@ ORDER BY message_id ASC
         )
         .await?;
     let rows = client
-        .query(&stmt, &[&group_id, &since_message_id, &crate::models::CHAT_BACKFILL_CAP])
+        .query(
+            &stmt,
+            &[&group_id, &crate::models::CHAT_HISTORY_DAYS, &crate::models::CHAT_BACKFILL_CAP],
+        )
         .await
         .map_err(ApiError::ListChatMessagesError)?;
     rows.iter()
@@ -5554,6 +5518,22 @@ ORDER BY message_id ASC
             })
         })
         .collect()
+}
+
+/// Reaps chat messages older than `CHAT_HISTORY_DAYS` - keeps `groupscape.chat_messages` bounded
+/// now that history isn't gated behind a slowly-advancing per-account delivery cursor. Mirrors
+/// `prune_old_loot_events`'s shape; called on the same kind of interval timer from
+/// `unauthed::start_chat_cleanup`.
+pub async fn prune_old_chat_messages(client: &Client) -> Result<u64, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            "DELETE FROM groupscape.chat_messages WHERE created_at < now() - ($1::bigint * interval '1 day')",
+        )
+        .await?;
+    client
+        .execute(&stmt, &[&crate::models::CHAT_HISTORY_DAYS])
+        .await
+        .map_err(ApiError::PGError)
 }
 
 /// Inserts a chat message. `member_name` is a point-in-time display snapshot (nullable, matching

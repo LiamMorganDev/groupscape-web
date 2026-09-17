@@ -1487,32 +1487,20 @@ pub async fn add_activity_comment(
     Ok(web::Json(ActivityCommentsPage { comments, comment_count }))
 }
 
-/// Own surface, own table - not the activity feed. Backfills up to `CHAT_BACKFILL_CAP` messages
-/// newer than the caller's server-side delivery cursor, oldest-first, then advances that cursor
-/// to the newest message returned - see the "Chat history and backfill behavior" spec ticket's
-/// §6: the cursor is per-account and server-side (not client-supplied, not per-device), so
-/// switching devices doesn't look like a first-ever connect. Distinct from the read cursor
-/// `mark_chat_read` tracks - see that handler's doc comment. Same dual-scope `account_id`
-/// resolution as `send_chat_message`/`mark_chat_read`.
+/// Own surface, own table - not the activity feed. Returns the last `CHAT_HISTORY_DAYS` days of
+/// the group's chat, oldest-first, capped at `CHAT_BACKFILL_CAP` - see the "Chat history and
+/// backfill behavior" spec ticket's §6. Ignores read/delivery state entirely (superseded the old
+/// per-account server-side delivery cursor - see `CHAT_HISTORY_DAYS`'s doc comment): every
+/// session sees the same rolling window on every call, so a webapp refresh doesn't lose messages
+/// it already delivered once. Distinct from the read cursor `mark_chat_read` tracks, which still
+/// drives the client's unread divider - see that handler's doc comment.
 #[get("/get-chat-messages")]
 pub async fn get_chat_messages(
-    req: HttpRequest,
     auth: Authenticated,
     db_pool: web::Data<Pool>,
 ) -> Result<web::Json<Vec<ChatMessage>>, Error> {
     let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
-    let account_id = match auth.account_id {
-        Some(account_id) => account_id,
-        None => require_account(&req, &client).await?,
-    };
-
-    let since = db::get_chat_delivery_cursor(&client, auth.group_id, account_id).await?;
-    let messages = db::list_chat_messages_since(&client, auth.group_id, since).await?;
-
-    if let Some(newest) = messages.iter().map(|m| m.message_id).max() {
-        db::advance_chat_delivery_cursor(&client, auth.group_id, account_id, newest).await?;
-    }
-
+    let messages = db::list_recent_chat_messages(&client, auth.group_id).await?;
     Ok(web::Json(messages))
 }
 

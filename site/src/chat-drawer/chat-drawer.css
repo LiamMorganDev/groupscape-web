@@ -182,6 +182,33 @@ chat-drawer {
   background: rgba(238, 13, 13, 0.15);
 }
 
+/* Minimal hairline rule - label first, then the line runs out to the panel edge. A background
+   chip masking a line drawn under the label (the more common "line through label" look) would
+   sit on top of `.rsbackground`'s repeating parchment texture and show a visible seam, so the
+   label and line sit side-by-side instead of overlapping. */
+.chat-drawer__unread-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 2px 8px;
+}
+
+.chat-drawer__unread-divider span {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--chat-unread-badge);
+}
+
+.chat-drawer__unread-divider::after {
+  content: "";
+  flex-grow: 1;
+  height: 1px;
+  background: var(--chat-unread-badge);
+}
+
 .chat-drawer__message-time {
   color: rgba(255, 255, 255, 0.4);
   font-size: 10px;
