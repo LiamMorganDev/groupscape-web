@@ -133,6 +133,12 @@ pub struct AuthenticationResult {
     /// more than one account, this is what disambiguates which account's row a caller should use
     /// (re-deriving from `account_hash` alone would be ambiguous).
     pub character_id: Option<i64>,
+    /// The DB `accounts.id` row the API key belongs to - always `Some` alongside `account_hash`,
+    /// `None` for the group-token dashboard scope (same shape as `account_hash`/`character_id`).
+    /// Lets a character-scope handler write an `account_id` FK (e.g. `chat_messages.account_id`)
+    /// without a webapp session token, which the plugin never has - see the "!gs" chat spec's
+    /// account_id resolution ticket.
+    pub account_id: Option<i64>,
 }
 type AuthenticationInfo = Rc<AuthenticationResult>;
 pub struct Authenticated(AuthenticationInfo);
@@ -298,6 +304,7 @@ where
                     group_id,
                     account_hash: None,
                     character_id: None,
+                    account_id: None,
                 };
                 req.extensions_mut()
                     .insert::<AuthenticationInfo>(Rc::new(authentication_result));

@@ -3124,6 +3124,39 @@ WHERE status = 'completed'
         transaction.commit().await?;
     }
 
+    if !has_migration_run(client, "create_chat_messages_table").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+CREATE TABLE IF NOT EXISTS groupscape.chat_messages (
+  message_id BIGSERIAL PRIMARY KEY,
+  group_id BIGINT NOT NULL REFERENCES groupscape.groups(group_id) ON DELETE CASCADE,
+  account_id BIGINT NOT NULL REFERENCES groupscape.accounts(id) ON DELETE CASCADE,
+  member_name CITEXT,
+  message_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+"#,
+                &[],
+            )
+            .await?;
+        // Backfill (message_id > cursor) and delivery ordering both key off group_id alone;
+        // message_id DESC lets the "most recent N" backfill query satisfy its ORDER BY from
+        // the index instead of an extra sort, same rationale as activity_event_comments' index.
+        transaction
+            .execute(
+                r#"
+CREATE INDEX IF NOT EXISTS chat_messages_group_id_idx ON groupscape.chat_messages (group_id, message_id DESC)
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "create_chat_messages_table").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5380,6 +5413,76 @@ pub async fn list_activity_comments(
             })
         })
         .collect()
+}
+
+/// Backfills messages strictly newer than `since_message_id`, oldest-first, capped at
+/// `CHAT_BACKFILL_CAP` - see the "Chat history and backfill behavior" spec ticket. `since_message_id
+/// = 0` (a brand-new account's cursor) returns the most recent `CHAT_BACKFILL_CAP` messages rather
+/// than the group's entire history.
+pub async fn list_chat_messages_since(
+    client: &Client,
+    group_id: i64,
+    since_message_id: i64,
+) -> Result<Vec<crate::models::ChatMessage>, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+SELECT message_id, member_name, message_text, created_at FROM (
+  SELECT message_id, member_name, message_text, created_at
+  FROM groupscape.chat_messages
+  WHERE group_id = $1 AND message_id > $2
+  ORDER BY message_id DESC
+  LIMIT $3
+) capped
+ORDER BY message_id ASC
+"#,
+        )
+        .await?;
+    let rows = client
+        .query(&stmt, &[&group_id, &since_message_id, &crate::models::CHAT_BACKFILL_CAP])
+        .await
+        .map_err(ApiError::ListChatMessagesError)?;
+    rows.iter()
+        .map(|row| {
+            Ok(crate::models::ChatMessage {
+                message_id: row.try_get("message_id")?,
+                member_name: row.try_get("member_name")?,
+                message_text: row.try_get("message_text")?,
+                created_at: row.try_get("created_at")?,
+            })
+        })
+        .collect()
+}
+
+/// Inserts a chat message. `member_name` is a point-in-time display snapshot (nullable, matching
+/// the column) - the caller resolves it once via `resolve_member_name_for_account` before calling
+/// this, same division of responsibility as `add_activity_comment`.
+pub async fn add_chat_message(
+    client: &Client,
+    group_id: i64,
+    account_id: i64,
+    member_name: Option<&str>,
+    message_text: &str,
+) -> Result<crate::models::ChatMessage, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+INSERT INTO groupscape.chat_messages (group_id, account_id, member_name, message_text)
+VALUES ($1, $2, $3, $4)
+RETURNING message_id, member_name, message_text, created_at
+"#,
+        )
+        .await?;
+    let row = client
+        .query_one(&stmt, &[&group_id, &account_id, &member_name, &message_text])
+        .await
+        .map_err(ApiError::AddChatMessageError)?;
+    Ok(crate::models::ChatMessage {
+        message_id: row.try_get("message_id")?,
+        member_name: row.try_get("member_name")?,
+        message_text: row.try_get("message_text")?,
+        created_at: row.try_get("created_at")?,
+    })
 }
 
 /// Inserts a comment, enforcing the 10-per-event cap atomically via a `WHERE COUNT(*) < 10`

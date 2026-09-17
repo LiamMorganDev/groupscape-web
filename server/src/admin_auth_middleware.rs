@@ -342,6 +342,7 @@ where
                         group_id,
                         account_hash: None,
                         character_id: None,
+                        account_id: None,
                     },
                 ));
 

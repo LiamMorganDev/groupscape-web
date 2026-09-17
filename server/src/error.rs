@@ -172,6 +172,14 @@ pub enum ApiError {
     ActivityCommentValidationError(String),
     ActivityCommentLimitReachedError,
     CommentRequiresLinkedCharacterError,
+    #[from(ignore)]
+    ListChatMessagesError(tokio_postgres::error::Error),
+    #[from(ignore)]
+    AddChatMessageError(tokio_postgres::error::Error),
+    ChatRequiresLinkedCharacterError,
+    #[from(ignore)]
+    ChatMessageValidationError(String),
+    ChatRateLimited,
 }
 impl std::error::Error for ApiError {}
 fn handle_pg_error(err: &tokio_postgres::error::Error, name: &str) -> HttpResponse {
@@ -429,6 +437,17 @@ impl ResponseError for ApiError {
                 .body("This item already has the maximum of 10 comments"),
             ApiError::CommentRequiresLinkedCharacterError => HttpResponse::BadRequest()
                 .body("Link a character to this group before commenting"),
+            ApiError::ListChatMessagesError(ref err) => {
+                handle_pg_error(err, "ListChatMessagesError")
+            }
+            ApiError::AddChatMessageError(ref err) => handle_pg_error(err, "AddChatMessageError"),
+            ApiError::ChatRequiresLinkedCharacterError => HttpResponse::BadRequest()
+                .body("Link a character to this group before sending chat messages"),
+            ApiError::ChatMessageValidationError(ref reason) => {
+                HttpResponse::BadRequest().body(reason.clone())
+            }
+            ApiError::ChatRateLimited => HttpResponse::TooManyRequests()
+                .body("Too many chat messages - slow down and try again shortly"),
         }
     }
 }

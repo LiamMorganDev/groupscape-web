@@ -157,6 +157,7 @@ async fn main() -> std::io::Result<()> {
     );
     let admin_rate_limiter = std::sync::Arc::new(AdminLoginRateLimiter::new());
     let broadcast_registry = web::Data::new(websocket::GroupBroadcastRegistry::new());
+    let chat_rate_limiter = web::Data::new(websocket::ChatRateLimiter::new());
     let ping_registry = web::Data::new(websocket::PingRegistry::new());
     let raid_marker_registry = web::Data::new(websocket::RaidMarkerRegistry::new());
     let raid_merge_registry = web::Data::new(raid_merge::RaidMergeRegistry::new());
@@ -249,6 +250,8 @@ async fn main() -> std::io::Result<()> {
             .service(authed::get_activity_reactions)
             .service(authed::list_activity_comments)
             .service(authed::add_activity_comment)
+            .service(authed::get_chat_messages)
+            .service(authed::send_chat_message)
             .service(authed::rename_group)
             .service(authed::reroll_group_token)
             .service(authed::delete_group)
@@ -376,7 +379,9 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("")
                     .wrap(grouped_character_middleware())
-                    .service(authed::get_group_data),
+                    .service(authed::get_group_data)
+                    .service(authed::get_chat_messages)
+                    .service(authed::send_chat_message),
             );
         let admin_scope = web::scope("/api/admin")
             .wrap(AdminAuthenticateMiddlewareFactory::new(
@@ -476,6 +481,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(tx.clone()))
             .app_data(broadcast_registry.clone())
+            .app_data(chat_rate_limiter.clone())
             .app_data(ping_registry.clone())
             .app_data(raid_marker_registry.clone())
             .app_data(raid_merge_registry.clone())

@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.498] - 2026-09-17
+
+### Added
+- Backend groundwork for group chat (not yet visible in the app - a chat tab is coming soon).
+
 ## [1.0.496] - 2026-09-16
 
 ### Fixed

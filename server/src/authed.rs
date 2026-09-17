@@ -17,13 +17,14 @@ use crate::loot_log_search::{
 };
 use crate::models::{
     ActivityCommentsPage, ActivityEvent, ActivityReactionsSummary, ActivitySettings,
-    AddActivityCommentRequest, AmIInGroupRequest, BlockedMember, DiscordWebhookSettings, GameEvent,
-    GroupCredentials, GroupMember, GroupMemberName, GroupMemberPermissions, GroupMetricData,
-    GroupSession, GroupSkillData, IdentifyCharacter, ItemBonusesResponse, LootItem, LootLogEvent,
-    LootLogItem, LootLogPage, LootLogSummary, MyPermissions, PermissionFlags, PermissionKey,
-    ReactToActivityEventRequest, RenameGroup, SlayerTaskHistoryPage, SlayerTaskStats,
-    TestDiscordNotificationRequest, UpdateGroupPermissionsRequest, UpdateMemberColorRequest,
-    ACTIVITY_COMMENT_MAX_LEN, ACTIVITY_REACTION_KINDS, SHARED_MEMBER,
+    AddActivityCommentRequest, AmIInGroupRequest, BlockedMember, ChatMessage,
+    DiscordWebhookSettings, GameEvent, GroupCredentials, GroupMember, GroupMemberName,
+    GroupMemberPermissions, GroupMetricData, GroupSession, GroupSkillData, IdentifyCharacter,
+    ItemBonusesResponse, LootItem, LootLogEvent, LootLogItem, LootLogPage, LootLogSummary,
+    MyPermissions, PermissionFlags, PermissionKey, ReactToActivityEventRequest, RenameGroup,
+    SendChatMessageRequest, SlayerTaskHistoryPage, SlayerTaskStats, TestDiscordNotificationRequest,
+    UpdateGroupPermissionsRequest, UpdateMemberColorRequest, ACTIVITY_COMMENT_MAX_LEN,
+    ACTIVITY_REACTION_KINDS, CHAT_MESSAGE_MAX_LEN, SHARED_MEMBER,
 };
 use crate::notable_npcs;
 use crate::permissions::{
@@ -36,10 +37,10 @@ use crate::update_batcher;
 use crate::unauthed::get_ge_prices_map;
 use crate::validators::{valid_name, validate_member_prop_length, ArrayFormat};
 use crate::websocket::{
-    self, ActivePing, ActiveRaidMarker, DropEventPayload, GroupBroadcastRegistry, KillEventPayload,
-    MarkerType, PingEndPayload, PingKind, PingRegistry, PingStartPayload, PingUpdatePayload,
-    RaidMarkerEndPayload, RaidMarkerRegistry, RaidMarkerStartPayload, RaidMarkerUpdatePayload,
-    VitalsUpdatePayload, WsEnvelope,
+    self, ActivePing, ActiveRaidMarker, ChatMessagePayload, DropEventPayload,
+    GroupBroadcastRegistry, KillEventPayload, MarkerType, PingEndPayload, PingKind, PingRegistry,
+    PingStartPayload, PingUpdatePayload, RaidMarkerEndPayload, RaidMarkerRegistry,
+    RaidMarkerStartPayload, RaidMarkerUpdatePayload, VitalsUpdatePayload, WsEnvelope,
 };
 use actix_web::{delete, get, post, put, web, Error, HttpRequest, HttpResponse};
 use chrono::{DateTime, Utc};
@@ -1479,6 +1480,103 @@ pub async fn add_activity_comment(
     let comments = db::list_activity_comments(&client, path.event_id).await?;
     let comment_count = comments.len() as i64;
     Ok(web::Json(ActivityCommentsPage { comments, comment_count }))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GetChatMessagesQuery {
+    /// The account's last-seen `message_id` cursor - see the "Chat history and backfill
+    /// behavior" spec ticket. `0` (a fresh account) returns the most recent page instead of full
+    /// history.
+    #[serde(default)]
+    pub since: i64,
+}
+
+/// Own surface, own table - not the activity feed. Backfills up to `CHAT_BACKFILL_CAP` messages
+/// newer than `since`, oldest-first. Cursor *advancement* (delivery vs. read) is tracked
+/// separately and isn't this endpoint's concern - see the "Chat history and backfill behavior"
+/// and "New-message notification behavior" spec tickets.
+#[get("/get-chat-messages")]
+pub async fn get_chat_messages(
+    auth: Authenticated,
+    query: web::Query<GetChatMessagesQuery>,
+    db_pool: web::Data<Pool>,
+) -> Result<web::Json<Vec<ChatMessage>>, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    let messages = db::list_chat_messages_since(&client, auth.group_id, query.since).await?;
+    Ok(web::Json(messages))
+}
+
+/// Sends a group chat message as the caller's linked character. Requires a linked character
+/// (`ChatRequiresLinkedCharacterError`) - see the "Chat auth and permission model" spec ticket.
+/// Truncates silently to `CHAT_MESSAGE_MAX_LEN` rather than rejecting - see the "Message
+/// formatting and length limits" spec ticket. Flood-guarded via `ChatRateLimiter`, keyed on
+/// `account_id` so it survives reconnects - see the "Minimum flood-protection guard" spec ticket.
+/// An over-cap attempt is dropped (never reaches `db::add_chat_message`) and reported to the
+/// sender two ways: the HTTP response is `ApiError::ChatRateLimited`, and a `ChatRateLimited`
+/// envelope is broadcast so every one of the sender's own connected sessions (plugin + webapp
+/// tabs) can react, not just whichever one made this particular call.
+///
+/// Reachable from two auth scopes with different notions of "who's sending": the character-key
+/// scope (the plugin) already resolved an `account_id` from the API key during auth - see
+/// `AuthenticationResult::account_id` - so use that directly. The group-token scope (the webapp)
+/// has no such notion; fall back to the webapp's own session header there, exactly as before this
+/// endpoint was reachable from the plugin. See the "!gs" chat spec's account_id resolution ticket.
+#[post("/send-chat-message")]
+pub async fn send_chat_message(
+    req: HttpRequest,
+    auth: Authenticated,
+    body: web::Json<SendChatMessageRequest>,
+    db_pool: web::Data<Pool>,
+    broadcast_registry: web::Data<GroupBroadcastRegistry>,
+    chat_rate_limiter: web::Data<websocket::ChatRateLimiter>,
+) -> Result<web::Json<ChatMessage>, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    let account_id = match auth.account_id {
+        Some(account_id) => account_id,
+        None => require_account(&req, &client).await?,
+    };
+
+    let member_name = db::resolve_member_name_for_account(&client, auth.group_id, account_id)
+        .await?
+        .ok_or(ApiError::ChatRequiresLinkedCharacterError)?;
+
+    let text: String = body.text.trim().chars().take(CHAT_MESSAGE_MAX_LEN).collect();
+    if text.is_empty() {
+        return Err(ApiError::ChatMessageValidationError("Chat message must not be empty".to_string())
+            .into());
+    }
+
+    if !chat_rate_limiter.check_and_record(account_id) {
+        let envelope = WsEnvelope::ChatRateLimited {
+            payload: websocket::ChatRateLimitedPayload {
+                member_name: Some(member_name),
+            },
+            ts: Utc::now(),
+        };
+        if let Ok(json) = serde_json::to_string(&envelope) {
+            broadcast_registry.publish(auth.group_id, json);
+        }
+        return Err(ApiError::ChatRateLimited.into());
+    }
+
+    let message =
+        db::add_chat_message(&client, auth.group_id, account_id, Some(&member_name), &text)
+            .await?;
+
+    let envelope = WsEnvelope::ChatMessage {
+        payload: ChatMessagePayload {
+            message_id: message.message_id,
+            member_name: message.member_name.clone(),
+            text: message.message_text.clone(),
+        },
+        ts: Utc::now(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        broadcast_registry.publish(auth.group_id, json);
+    }
+
+    Ok(web::Json(message))
 }
 
 fn default_sessions_limit() -> i64 {

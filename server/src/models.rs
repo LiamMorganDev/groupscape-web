@@ -1037,6 +1037,30 @@ pub struct AddActivityCommentRequest {
     pub comment_text: String,
 }
 
+/// A `groupscape.chat_messages` row, as returned by both backfill and a successful send. Own
+/// table, own surfaces (side-panel tab / webapp chat panel / in-game overlay) - deliberately not
+/// part of the activity feed or `activity_event_comments`.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessage {
+    pub message_id: i64,
+    pub member_name: Option<String>,
+    pub message_text: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Backfill cap - see the "Chat history and backfill behavior" spec ticket. Bounds payload size
+/// after a long gap between connects.
+pub const CHAT_BACKFILL_CAP: i64 = 200;
+/// Truncated silently, not rejected - see the "Message formatting and length limits" spec ticket.
+pub const CHAT_MESSAGE_MAX_LEN: usize = 150;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SendChatMessageRequest {
+    pub text: String,
+}
+
 /// One item entry within a [`LootLogEvent`] - the loot log's per-event, per-item view (unlike
 /// the deleted `LootSummaryRow`, this doesn't pre-aggregate across events, so the client can do
 /// the 45-minute session merge itself from raw per-event timestamps).

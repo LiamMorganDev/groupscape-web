@@ -30,6 +30,7 @@ struct CharacterAuthenticationCacheKey {
 #[derive(Clone)]
 struct CachedCharacterAuth {
     character_id: i64,
+    account_id: i64,
     group_id: Option<i64>,
 }
 
@@ -237,6 +238,7 @@ async fn authenticate_via_db(
 
     let value = CachedCharacterAuth {
         character_id: character.id,
+        account_id: account.id,
         group_id,
     };
     cache.insert(account_hash, api_key_hash.to_owned(), value.clone());
@@ -312,6 +314,7 @@ where
                     group_id: resolved.group_id.expect("checked above"),
                     account_hash: Some(account_hash.clone()),
                     character_id: Some(resolved.character_id),
+                    account_id: Some(resolved.account_id),
                 };
                 req.extensions_mut()
                     .insert::<Rc<AuthenticationResult>>(Rc::new(authentication_result));
@@ -344,12 +347,14 @@ mod tests {
             "valid-key-hash".to_owned(),
             CachedCharacterAuth {
                 character_id: 42,
+                account_id: 99,
                 group_id: Some(7),
             },
         );
 
         let cached = cache.get("12345", "valid-key-hash").unwrap();
         assert_eq!(cached.character_id, 42);
+        assert_eq!(cached.account_id, 99);
         assert_eq!(cached.group_id, Some(7));
         assert!(cache.get("12345", "other-key-hash").is_none());
         assert!(cache.get("other-hash", "valid-key-hash").is_none());
@@ -363,6 +368,7 @@ mod tests {
             "key-hash".to_owned(),
             CachedCharacterAuth {
                 character_id: 42,
+                account_id: 99,
                 group_id: None,
             },
         );

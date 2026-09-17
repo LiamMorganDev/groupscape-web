@@ -319,6 +319,101 @@ pub struct ColorUpdatePayload {
     pub color: String,
 }
 
+/// Color is deliberately not carried here - every surface already tracks member->color via
+/// `RosterSnapshotPayload`/`ColorUpdatePayload`, so renderers key into that existing state by
+/// `member_name` instead of denormalizing a copy that can go stale.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessagePayload {
+    pub message_id: i64,
+    pub member_name: Option<String>,
+    pub text: String,
+}
+
+/// Broadcast group-wide like every other `WsEnvelope` variant (no per-session targeting exists);
+/// `member_name` lets each connected session tell whether the limited sender was itself. `None`
+/// for a sender with no resolved character, matching `ChatMessagePayload::member_name`.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatRateLimitedPayload {
+    pub member_name: Option<String>,
+}
+
+/// Chat flood guard - see the "Minimum flood-protection guard" spec ticket. Keyed on `account_id`
+/// (not websocket connection) so it survives reconnects, per spec. Fixed window, same shape as
+/// `AdminLoginRateLimiter`: a window resets once it's been open longer than `CHAT_RATE_LIMIT_WINDOW`
+/// rather than sliding, which is a fine approximation at this cap (order-of-magnitude anchor per
+/// spec, not an exact algorithm requirement).
+const CHAT_RATE_LIMIT_WINDOW: std::time::Duration = std::time::Duration::from_secs(10);
+const CHAT_RATE_LIMIT_MAX_MESSAGES: u32 = 10;
+const CHAT_RATE_LIMIT_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+
+struct ChatRateLimitWindow {
+    count: u32,
+    window_start: std::time::Instant,
+}
+
+struct ChatRateLimiterInner {
+    windows: HashMap<i64, ChatRateLimitWindow>,
+    last_sweep: std::time::Instant,
+}
+
+pub struct ChatRateLimiter {
+    inner: RwLock<ChatRateLimiterInner>,
+}
+
+impl ChatRateLimiter {
+    pub fn new() -> Self {
+        Self {
+            inner: RwLock::new(ChatRateLimiterInner {
+                windows: HashMap::new(),
+                last_sweep: std::time::Instant::now(),
+            }),
+        }
+    }
+
+    fn sweep_if_due(inner: &mut ChatRateLimiterInner, now: std::time::Instant) {
+        if now.duration_since(inner.last_sweep) < CHAT_RATE_LIMIT_SWEEP_INTERVAL {
+            return;
+        }
+        inner
+            .windows
+            .retain(|_, window| now.duration_since(window.window_start) < CHAT_RATE_LIMIT_WINDOW);
+        inner.last_sweep = now;
+    }
+
+    /// Records a send attempt for `account_id` and reports whether it's over the cap. Over-cap
+    /// attempts still count against the window (so a caller hammering past the limit doesn't get a
+    /// fresh allowance), but the caller is expected to drop the message rather than store/broadcast
+    /// it - see `authed::send_chat_message`.
+    pub fn check_and_record(&self, account_id: i64) -> bool {
+        let Ok(mut inner) = self.inner.write() else {
+            return true;
+        };
+        let now = std::time::Instant::now();
+        Self::sweep_if_due(&mut inner, now);
+
+        let window = inner.windows.entry(account_id).or_insert(ChatRateLimitWindow {
+            count: 0,
+            window_start: now,
+        });
+
+        if now.duration_since(window.window_start) >= CHAT_RATE_LIMIT_WINDOW {
+            window.count = 0;
+            window.window_start = now;
+        }
+
+        window.count += 1;
+        window.count <= CHAT_RATE_LIMIT_MAX_MESSAGES
+    }
+}
+
+impl Default for ChatRateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// What a ping was dropped on - see `PingStartPayload::npc_name`.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -446,6 +541,14 @@ pub enum WsEnvelope {
         payload: RaidMarkerEndPayload,
         ts: DateTime<Utc>,
     },
+    ChatMessage {
+        payload: ChatMessagePayload,
+        ts: DateTime<Utc>,
+    },
+    ChatRateLimited {
+        payload: ChatRateLimitedPayload,
+        ts: DateTime<Utc>,
+    },
 }
 
 #[cfg(test)]
@@ -488,6 +591,72 @@ mod tests {
         assert_eq!(json["type"], "marker_start");
         assert_eq!(json["payload"]["markerType"], "defend");
         assert_eq!(json["payload"]["kind"], "tile");
+    }
+
+    #[test]
+    fn chat_message_serializes_with_snake_case_type_and_camel_case_payload() {
+        let envelope = WsEnvelope::ChatMessage {
+            payload: ChatMessagePayload {
+                message_id: 42,
+                member_name: Some("Zezima".to_string()),
+                text: "gz on the pet".to_string(),
+            },
+            ts: DateTime::<Utc>::MIN_UTC,
+        };
+
+        let json = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(json["type"], "chat_message");
+        assert_eq!(json["payload"]["messageId"], 42);
+        assert_eq!(json["payload"]["memberName"], "Zezima");
+        assert_eq!(json["payload"]["text"], "gz on the pet");
+    }
+
+    #[test]
+    fn chat_message_serializes_null_member_name_when_absent() {
+        let envelope = WsEnvelope::ChatMessage {
+            payload: ChatMessagePayload {
+                message_id: 43,
+                member_name: None,
+                text: "hello".to_string(),
+            },
+            ts: DateTime::<Utc>::MIN_UTC,
+        };
+
+        let json = serde_json::to_value(&envelope).unwrap();
+        assert!(json["payload"]["memberName"].is_null());
+    }
+
+    #[test]
+    fn chat_rate_limited_serializes_with_snake_case_type() {
+        let envelope = WsEnvelope::ChatRateLimited {
+            payload: ChatRateLimitedPayload {
+                member_name: Some("Zezima".to_string()),
+            },
+            ts: DateTime::<Utc>::MIN_UTC,
+        };
+
+        let json = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(json["type"], "chat_rate_limited");
+        assert_eq!(json["payload"]["memberName"], "Zezima");
+    }
+
+    #[test]
+    fn chat_rate_limiter_allows_up_to_the_cap_then_blocks() {
+        let limiter = ChatRateLimiter::new();
+        for _ in 0..CHAT_RATE_LIMIT_MAX_MESSAGES {
+            assert!(limiter.check_and_record(1));
+        }
+        assert!(!limiter.check_and_record(1));
+    }
+
+    #[test]
+    fn chat_rate_limiter_tracks_accounts_independently() {
+        let limiter = ChatRateLimiter::new();
+        for _ in 0..CHAT_RATE_LIMIT_MAX_MESSAGES {
+            assert!(limiter.check_and_record(1));
+        }
+        assert!(!limiter.check_and_record(1));
+        assert!(limiter.check_and_record(2));
     }
 
     #[test]
