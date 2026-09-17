@@ -3,6 +3,7 @@ chat-drawer {
   right: 20px;
   bottom: 20px;
   z-index: 40;
+  pointer-events: auto;
 }
 
 .chat-drawer__bubble {
