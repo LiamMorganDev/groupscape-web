@@ -11,9 +11,9 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
 // `chatSocketUrl`) for the chat drawer's live feed. The same endpoint also sends
 // `roster_snapshot`/`vitals_update`/etc. frames (it's shared with the RuneLite party overlay -
 // see server's `party_overlay_ws`), but this client only republishes the `chat_message`,
-// `chat_rate_limited`, `chat_read`, and `chat_message_deleted` envelope types onto pubsub;
-// everything else is ignored since the webapp already gets roster/vitals data from its own poll
-// loop.
+// `chat_rate_limited`, `chat_read`, `chat_message_deleted`, and `chat_messages_cleared` envelope
+// types onto pubsub; everything else is ignored since the webapp already gets roster/vitals data
+// from its own poll loop.
 class ChatSocket {
   constructor() {
     this.enabled = false;
@@ -68,6 +68,8 @@ class ChatSocket {
         pubsub.publish("chat-socket-read", envelope.payload);
       } else if (envelope.type === "chat_message_deleted") {
         pubsub.publish("chat-socket-message-deleted", envelope.payload);
+      } else if (envelope.type === "chat_messages_cleared") {
+        pubsub.publish("chat-socket-messages-cleared");
       }
     };
 

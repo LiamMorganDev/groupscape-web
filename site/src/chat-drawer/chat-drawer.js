@@ -107,6 +107,7 @@ export class ChatDrawer extends BaseElement {
     this.badge = this.querySelector(".chat-drawer__badge");
     this.panel = this.querySelector(".chat-drawer__panel");
     this.closeButton = this.querySelector(".chat-drawer__close");
+    this.clearAllButton = this.querySelector(".chat-drawer__clear-all");
     this.searchInput = this.querySelector(".chat-drawer__search");
     this.list = this.querySelector(".chat-drawer__list");
     this.emptyState = this.querySelector(".chat-drawer__empty");
@@ -119,6 +120,7 @@ export class ChatDrawer extends BaseElement {
 
     this.eventListener(this.bubble, "click", () => this.open());
     this.eventListener(this.closeButton, "click", () => this.close());
+    this.eventListener(this.clearAllButton, "click", () => this.handleClearAll());
     this.eventListener(this.searchInput, "input", () => {
       this.searchQuery = this.searchInput.value;
       this.renderMessages();
@@ -141,6 +143,7 @@ export class ChatDrawer extends BaseElement {
     this.subscribe("chat-unread-count", (count) => this.updateUnread(count));
     this.subscribe("chat-is-admin", (isAdmin) => {
       this.isAdmin = isAdmin;
+      this.clearAllButton.hidden = !isAdmin;
       this.renderMessages();
     });
   }
@@ -296,6 +299,28 @@ export class ChatDrawer extends BaseElement {
       }
     } catch {
       this.showError("Failed to delete message");
+    }
+  }
+
+  handleClearAll() {
+    confirmDialogManager.confirm({
+      headline: "Clear the entire group chat?",
+      body: "This permanently deletes every message for every member of the group.",
+      yesCallback: () => this.deleteAllMessages(),
+      noCallback: () => {},
+    });
+  }
+
+  async deleteAllMessages() {
+    this.errorEl.hidden = true;
+    try {
+      const response = await chatStore.deleteAllMessages();
+      if (!response.ok) {
+        const message = await response.text().catch(() => "Failed to clear chat");
+        this.showError(message || "Failed to clear chat");
+      }
+    } catch {
+      this.showError("Failed to clear chat");
     }
   }
 

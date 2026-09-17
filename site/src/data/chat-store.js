@@ -48,9 +48,11 @@ class ChatStore {
     this.handleSocketMessage = this.handleSocketMessage.bind(this);
     this.handleSocketRead = this.handleSocketRead.bind(this);
     this.handleSocketMessageDeleted = this.handleSocketMessageDeleted.bind(this);
+    this.handleSocketMessagesCleared = this.handleSocketMessagesCleared.bind(this);
     pubsub.subscribe("chat-socket-message", this.handleSocketMessage);
     pubsub.subscribe("chat-socket-read", this.handleSocketRead);
     pubsub.subscribe("chat-socket-message-deleted", this.handleSocketMessageDeleted);
+    pubsub.subscribe("chat-socket-messages-cleared", this.handleSocketMessagesCleared);
     chatSocket.enable();
     this.loadBackfill();
     this.resolveMyPermissions();
@@ -66,6 +68,8 @@ class ChatStore {
     if (this.handleSocketRead) pubsub.unsubscribe("chat-socket-read", this.handleSocketRead);
     if (this.handleSocketMessageDeleted)
       pubsub.unsubscribe("chat-socket-message-deleted", this.handleSocketMessageDeleted);
+    if (this.handleSocketMessagesCleared)
+      pubsub.unsubscribe("chat-socket-messages-cleared", this.handleSocketMessagesCleared);
     pubsub.unpublish("chat-messages");
     pubsub.unpublish("chat-unread-count");
     pubsub.unpublish("chat-is-admin");
@@ -150,6 +154,19 @@ class ChatStore {
     this.publishUnreadCount();
   }
 
+  // Another connected session had an admin clear the whole chat; drop everything from this tab's
+  // history live, same idempotent shape as `handleSocketMessageDeleted`.
+  handleSocketMessagesCleared() {
+    this.clearMessages();
+  }
+
+  clearMessages() {
+    if (this.messages.length === 0) return;
+    this.messages = [];
+    this.publishMessages();
+    this.publishUnreadCount();
+  }
+
   // Called by chat-drawer.js's delete-`x` control (admin-only, server re-checks via
   // `require_group_admin`). Removes locally on success rather than waiting for the
   // `chat_message_deleted` broadcast to loop back - `removeMessage` is idempotent, so the
@@ -157,6 +174,16 @@ class ChatStore {
   async deleteMessage(messageId) {
     const response = await api.deleteChatMessage(messageId);
     if (response.ok) this.removeMessage(messageId);
+    return response;
+  }
+
+  // Called by chat-drawer.js's "Clear all" control (admin-only, server re-checks via
+  // `require_group_admin`). Clears locally on success rather than waiting for the
+  // `chat_messages_cleared` broadcast to loop back - `clearMessages` is idempotent, so the
+  // broadcast arriving a moment later for this tab's own clear is just a no-op.
+  async deleteAllMessages() {
+    const response = await api.deleteAllChatMessages();
+    if (response.ok) this.clearMessages();
     return response;
   }
 

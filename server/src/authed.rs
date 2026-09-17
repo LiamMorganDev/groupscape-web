@@ -18,7 +18,8 @@ use crate::loot_log_search::{
 use crate::models::{
     ActivityCommentsPage, ActivityEvent, ActivityReactionsSummary, ActivitySettings,
     AddActivityCommentRequest, AmIInGroupRequest, BlockedMember, ChatMessage,
-    DiscordWebhookSettings, GameEvent, GroupCredentials, GroupMember, GroupMemberName,
+    DeleteChatMessageRequest, DiscordWebhookSettings, GameEvent, GroupCredentials, GroupMember,
+    GroupMemberName,
     GroupMemberPermissions, GroupMetricData, GroupSession, GroupSkillData, IdentifyCharacter,
     ItemBonusesResponse, LootItem, LootLogEvent, LootLogItem, LootLogPage, LootLogSummary,
     MarkChatReadRequest, MarkChatReadResponse, MyPermissions, PermissionFlags, PermissionKey,
@@ -1625,18 +1626,23 @@ pub async fn mark_chat_read(
 /// doc comment on `MyPermissions`, which the client checks before showing the delete control at
 /// all. Broadcasts a `ChatMessageDeleted` envelope so every other connected session drops the
 /// message from its own history live.
-#[delete("/delete-chat-message/{message_id}")]
+///
+/// A `POST` with a JSON body rather than `DELETE /delete-chat-message/{message_id}` - something
+/// in front of the backend was mangling that path-param `DELETE` in production (came back with a
+/// Postgres-shaped error body actix never sends), so this sidesteps whatever that was rather than
+/// chasing it further. Same body shape as `/mark-chat-read`.
+#[post("/delete-chat-message")]
 pub async fn delete_chat_message(
     req: HttpRequest,
     auth: Authenticated,
-    path: web::Path<i64>,
+    body: web::Json<DeleteChatMessageRequest>,
     db_pool: web::Data<Pool>,
     broadcast_registry: web::Data<GroupBroadcastRegistry>,
 ) -> Result<HttpResponse, Error> {
     let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
     require_group_admin(&req, &client, auth.group_id).await?;
 
-    let message_id = path.into_inner();
+    let message_id = body.message_id;
     let deleted = db::delete_chat_message(&client, auth.group_id, message_id).await?;
     if !deleted {
         return Err(ApiError::ChatMessageNotFoundError.into());
@@ -1648,6 +1654,36 @@ pub async fn delete_chat_message(
     };
     if let Ok(json) = serde_json::to_string(&envelope) {
         broadcast_registry.publish(auth.group_id, json);
+    }
+
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Lets the group's literal admin wipe the whole group chat from the webapp chat drawer - same
+/// [`require_group_admin`] gate as [`delete_chat_message`], just clearing everything instead of
+/// one message. Broadcasts a `ChatMessagesCleared` envelope so every other connected session
+/// drops its entire local history live.
+///
+/// `POST`, not `DELETE`, matching [`delete_chat_message`]'s switch away from the `DELETE` verb.
+#[post("/delete-all-chat-messages")]
+pub async fn delete_all_chat_messages(
+    req: HttpRequest,
+    auth: Authenticated,
+    db_pool: web::Data<Pool>,
+    broadcast_registry: web::Data<GroupBroadcastRegistry>,
+) -> Result<HttpResponse, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    require_group_admin(&req, &client, auth.group_id).await?;
+
+    let deleted = db::delete_all_chat_messages(&client, auth.group_id).await?;
+    if deleted > 0 {
+        let envelope = WsEnvelope::ChatMessagesCleared {
+            payload: websocket::ChatMessagesClearedPayload {},
+            ts: Utc::now(),
+        };
+        if let Ok(json) = serde_json::to_string(&envelope) {
+            broadcast_registry.publish(auth.group_id, json);
+        }
     }
 
     Ok(HttpResponse::Ok().finish())

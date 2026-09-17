@@ -10,6 +10,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Slayer Stats tab now shows your most common boss task and a total count of boss tasks assigned.
 - Slayer Stats tab now also shows your total boss task kill count alongside the boss task count.
 - Group admins can now delete other members' messages from the group chat.
+- Group admins can now clear a group's entire chat history in one click, instead of deleting messages one at a time.
 - Maggot King and Shellbane Gryphon boss tasks now show an icon in your Slayer Stats.
 
 ### Changed
@@ -28,6 +29,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Barrows Brothers, Maggot King, and Shellbane Gryphon boss tasks now correctly count toward your Slayer Stats boss task totals - they were being tracked but silently excluded from the stats.
 - Group chat now actually updates live - new messages, deletions, and read receipts from other tabs and group members used to only show up after a page refresh, since the site's WebSocket connection was silently never reaching the server.
 - Maggot King and Shellbane Gryphon slayer tasks now actually show their icon - the artwork shipped earlier but was never wired up, so they were still falling back to the generic unknown-task icon.
+- Group admins deleting a chat message no longer occasionally get an error and fail to delete it.
 - Group chat no longer shows "No messages yet" on top of your actual message history.
 - Group chat history loads again for logged-in accounts - it had started failing with an authorization error after the per-account read-tracking change, so messages only ever showed up over the live connection, never on page load.
 - Group chat's live connection actually connects now - a production-only URL-building bug meant the browser was trying to reach a garbled, nonexistent address for the live feed, so nothing (including messages sent from RuneLite) ever showed up without a page refresh.

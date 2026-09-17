@@ -185,6 +185,8 @@ pub enum ApiError {
     #[from(ignore)]
     DeleteChatMessageError(tokio_postgres::error::Error),
     ChatMessageNotFoundError,
+    #[from(ignore)]
+    DeleteAllChatMessagesError(tokio_postgres::error::Error),
 }
 impl std::error::Error for ApiError {}
 fn handle_pg_error(err: &tokio_postgres::error::Error, name: &str) -> HttpResponse {
@@ -461,6 +463,9 @@ impl ResponseError for ApiError {
             }
             ApiError::ChatMessageNotFoundError => {
                 HttpResponse::NotFound().body("Chat message not found")
+            }
+            ApiError::DeleteAllChatMessagesError(ref err) => {
+                handle_pg_error(err, "DeleteAllChatMessagesError")
             }
         }
     }

@@ -364,6 +364,13 @@ pub struct ChatMessageDeletedPayload {
     pub message_id: i64,
 }
 
+/// Fires when a group admin clears the entire chat (`DELETE /delete-all-chat-messages`) - lets
+/// every other connected session (plugin + other browser tabs, any member's) wipe its own
+/// in-memory history live, without re-fetching. No payload: there's nothing to say beyond "it
+/// happened". Broadcast group-wide like every other `WsEnvelope` variant.
+#[derive(Serialize, Clone)]
+pub struct ChatMessagesClearedPayload {}
+
 /// Chat flood guard - see the "Minimum flood-protection guard" spec ticket. Keyed on `account_id`
 /// (not websocket connection) so it survives reconnects, per spec. Fixed window, same shape as
 /// `AdminLoginRateLimiter`: a window resets once it's been open longer than `CHAT_RATE_LIMIT_WINDOW`
@@ -580,6 +587,10 @@ pub enum WsEnvelope {
     },
     ChatMessageDeleted {
         payload: ChatMessageDeletedPayload,
+        ts: DateTime<Utc>,
+    },
+    ChatMessagesCleared {
+        payload: ChatMessagesClearedPayload,
         ts: DateTime<Utc>,
     },
 }

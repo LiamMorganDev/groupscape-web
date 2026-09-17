@@ -1095,6 +1095,14 @@ pub struct MarkChatReadResponse {
     pub message_id: i64,
 }
 
+/// Body for `POST /delete-chat-message` (see that handler's doc comment for why this is a POST
+/// body rather than a `DELETE /delete-chat-message/{message_id}` path param).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeleteChatMessageRequest {
+    pub message_id: i64,
+}
+
 /// One item entry within a [`LootLogEvent`] - the loot log's per-event, per-item view (unlike
 /// the deleted `LootSummaryRow`, this doesn't pre-aggregate across events, so the client can do
 /// the 45-minute session merge itself from raw per-event timestamps).

@@ -95,6 +95,27 @@ chat-drawer {
   padding: 0 4px;
 }
 
+.chat-drawer__clear-all {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--invalid);
+  border-radius: 4px;
+  color: var(--invalid);
+  font-family: "rssmall", ui-sans-serif, Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.chat-drawer__clear-all:hover {
+  background: rgba(238, 13, 13, 0.15);
+}
+
+.chat-drawer__clear-all[hidden] {
+  display: none;
+}
+
 .chat-drawer__search-row {
   flex-shrink: 0;
   padding: 8px 10px;

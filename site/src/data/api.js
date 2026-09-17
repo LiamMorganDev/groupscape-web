@@ -195,8 +195,12 @@ class Api {
     return `${this.groupScopeUrl}/mark-chat-read`;
   }
 
-  deleteChatMessageUrl(messageId) {
-    return `${this.groupScopeUrl}/delete-chat-message/${messageId}`;
+  get deleteChatMessageUrl() {
+    return `${this.groupScopeUrl}/delete-chat-message`;
+  }
+
+  get deleteAllChatMessagesUrl() {
+    return `${this.groupScopeUrl}/delete-all-chat-messages`;
   }
 
   // The chat drawer's live feed - same `/ws` handler and `Authenticated{group_id}` the RuneLite
@@ -267,14 +271,34 @@ class Api {
   }
 
   // Group-admin-only (server re-checks via `require_group_admin`) - see the chat drawer's
-  // delete-`x` control, only rendered when `getMyPermissions()` reports `is_admin`.
+  // delete-`x` control, only rendered when `getMyPermissions()` reports `is_admin`. A `POST` with
+  // a JSON body rather than `DELETE /delete-chat-message/{id}` - something in front of the
+  // backend was mangling that path-param `DELETE` in production, so the server switched to this
+  // shape instead (see `authed::delete_chat_message`'s doc comment).
   async deleteChatMessage(messageId) {
-    const response = await fetch(this.deleteChatMessageUrl(messageId), {
+    const response = await fetch(this.deleteChatMessageUrl, {
+      body: JSON.stringify({ messageId }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "POST",
+    });
+
+    return response;
+  }
+
+  // Group-admin-only (server re-checks via `require_group_admin`) - see the chat drawer's
+  // "Clear all" control, only rendered when `getMyPermissions()` reports `is_admin`. `POST`, not
+  // `DELETE`, matching `deleteChatMessage`'s switch away from the `DELETE` verb.
+  async deleteAllChatMessages() {
+    const response = await fetch(this.deleteAllChatMessagesUrl, {
       headers: {
         Authorization: this.authHeader,
         ...this.accountAuthHeaders,
       },
-      method: "DELETE",
+      method: "POST",
     });
 
     return response;

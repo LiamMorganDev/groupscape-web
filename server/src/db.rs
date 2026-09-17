@@ -5591,6 +5591,20 @@ WHERE group_id = $1 AND message_id = $2
     Ok(deleted > 0)
 }
 
+/// Wipes a group's entire chat history - the admin-only "clear chat" control, distinct from
+/// deleting a single message. Scoped by `group_id` same as `delete_chat_message`. Returns the
+/// number of rows removed so the handler can skip broadcasting a clear when there was nothing to
+/// clear.
+pub async fn delete_all_chat_messages(client: &Client, group_id: i64) -> Result<u64, ApiError> {
+    let stmt = client
+        .prepare_cached("DELETE FROM groupscape.chat_messages WHERE group_id = $1")
+        .await?;
+    client
+        .execute(&stmt, &[&group_id])
+        .await
+        .map_err(ApiError::DeleteAllChatMessagesError)
+}
+
 /// Advances the caller's read cursor to `message_id`, never backwards - `GREATEST` guards against
 /// a stale/out-of-order request (e.g. two of the account's sessions racing) rewinding a cursor
 /// another session already pushed further. Returns the resulting cursor value (which may be higher
