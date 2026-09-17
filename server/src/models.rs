@@ -285,6 +285,11 @@ pub struct SlayerTaskStats {
     pub most_common_modifier: Option<SlayerModifierLeader>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fastest_completed_task: Option<SlayerTaskDurationLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub most_common_boss_task: Option<SlayerTaskLeader>,
+    /// Count of all-time assignments whose task_name is one of [`crate::slayer_boss_tasks`]'s
+    /// assignable bosses, any status - matches `most_common_task`'s all-statuses scope.
+    pub boss_tasks_count: i64,
 }
 
 #[derive(Deserialize)]
@@ -1059,6 +1064,25 @@ pub const CHAT_MESSAGE_MAX_LEN: usize = 150;
 #[serde(deny_unknown_fields)]
 pub struct SendChatMessageRequest {
     pub text: String,
+}
+
+/// `messageId` is the client's latest-seen id, not a bare "mark everything read" flag - lets a
+/// caller mark read up to a specific point (e.g. what's currently scrolled into view) rather than
+/// always jumping to the group's true latest. `rename_all = "camelCase"` since this is a
+/// dual-scope request body (plugin + webapp), matching `PingRequest`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarkChatReadRequest {
+    pub message_id: i64,
+}
+
+/// Echoes back the cursor's actual resulting value - see
+/// `db::advance_chat_read_cursor`'s doc comment for why that can differ from the request's
+/// `messageId`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkChatReadResponse {
+    pub message_id: i64,
 }
 
 /// One item entry within a [`LootLogEvent`] - the loot log's per-event, per-item view (unlike

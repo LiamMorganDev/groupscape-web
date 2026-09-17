@@ -21,10 +21,11 @@ use crate::models::{
     DiscordWebhookSettings, GameEvent, GroupCredentials, GroupMember, GroupMemberName,
     GroupMemberPermissions, GroupMetricData, GroupSession, GroupSkillData, IdentifyCharacter,
     ItemBonusesResponse, LootItem, LootLogEvent, LootLogItem, LootLogPage, LootLogSummary,
-    MyPermissions, PermissionFlags, PermissionKey, ReactToActivityEventRequest, RenameGroup,
-    SendChatMessageRequest, SlayerTaskHistoryPage, SlayerTaskStats, TestDiscordNotificationRequest,
-    UpdateGroupPermissionsRequest, UpdateMemberColorRequest, ACTIVITY_COMMENT_MAX_LEN,
-    ACTIVITY_REACTION_KINDS, CHAT_MESSAGE_MAX_LEN, SHARED_MEMBER,
+    MarkChatReadRequest, MarkChatReadResponse, MyPermissions, PermissionFlags, PermissionKey,
+    ReactToActivityEventRequest, RenameGroup, SendChatMessageRequest, SlayerTaskHistoryPage,
+    SlayerTaskStats, TestDiscordNotificationRequest, UpdateGroupPermissionsRequest,
+    UpdateMemberColorRequest, ACTIVITY_COMMENT_MAX_LEN, ACTIVITY_REACTION_KINDS,
+    CHAT_MESSAGE_MAX_LEN, SHARED_MEMBER,
 };
 use crate::notable_npcs;
 use crate::permissions::{
@@ -37,7 +38,7 @@ use crate::update_batcher;
 use crate::unauthed::get_ge_prices_map;
 use crate::validators::{valid_name, validate_member_prop_length, ArrayFormat};
 use crate::websocket::{
-    self, ActivePing, ActiveRaidMarker, ChatMessagePayload, DropEventPayload,
+    self, ActivePing, ActiveRaidMarker, ChatMessagePayload, ChatReadPayload, DropEventPayload,
     GroupBroadcastRegistry, KillEventPayload, MarkerType, PingEndPayload, PingKind, PingRegistry,
     PingStartPayload, PingUpdatePayload, RaidMarkerEndPayload, RaidMarkerRegistry,
     RaidMarkerStartPayload, RaidMarkerUpdatePayload, VitalsUpdatePayload, WsEnvelope,
@@ -999,8 +1000,9 @@ pub struct PingRequest {
 
 /// `POST /ping` - relays a group member's ping (right-click/hotkey on an NPC or tile) to every
 /// connected RuneLite party overlay as a `PingStart`/`PingUpdate`/`PingEnd` frame, and mirrors the
-/// same lifecycle into `PingRegistry` so the web map (which has no websocket - it polls
-/// `get-active-pings` on the same cadence it already polls member positions) can pick it up too.
+/// same lifecycle into `PingRegistry` so the web map (which doesn't read pings off its own `/ws`
+/// connection - it polls `get-active-pings` on the same cadence it already polls member
+/// positions) can pick it up too.
 /// No DB write and no membership/ownership checks beyond the existing group-scope auth - the
 /// sender's own client is the sole source of truth for its ping's lifecycle (e.g. clearing the
 /// previous ping before starting a new one), matching this endpoint's ephemeral, trust-the-client
@@ -1482,28 +1484,32 @@ pub async fn add_activity_comment(
     Ok(web::Json(ActivityCommentsPage { comments, comment_count }))
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct GetChatMessagesQuery {
-    /// The account's last-seen `message_id` cursor - see the "Chat history and backfill
-    /// behavior" spec ticket. `0` (a fresh account) returns the most recent page instead of full
-    /// history.
-    #[serde(default)]
-    pub since: i64,
-}
-
 /// Own surface, own table - not the activity feed. Backfills up to `CHAT_BACKFILL_CAP` messages
-/// newer than `since`, oldest-first. Cursor *advancement* (delivery vs. read) is tracked
-/// separately and isn't this endpoint's concern - see the "Chat history and backfill behavior"
-/// and "New-message notification behavior" spec tickets.
+/// newer than the caller's server-side delivery cursor, oldest-first, then advances that cursor
+/// to the newest message returned - see the "Chat history and backfill behavior" spec ticket's
+/// §6: the cursor is per-account and server-side (not client-supplied, not per-device), so
+/// switching devices doesn't look like a first-ever connect. Distinct from the read cursor
+/// `mark_chat_read` tracks - see that handler's doc comment. Same dual-scope `account_id`
+/// resolution as `send_chat_message`/`mark_chat_read`.
 #[get("/get-chat-messages")]
 pub async fn get_chat_messages(
+    req: HttpRequest,
     auth: Authenticated,
-    query: web::Query<GetChatMessagesQuery>,
     db_pool: web::Data<Pool>,
 ) -> Result<web::Json<Vec<ChatMessage>>, Error> {
     let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
-    let messages = db::list_chat_messages_since(&client, auth.group_id, query.since).await?;
+    let account_id = match auth.account_id {
+        Some(account_id) => account_id,
+        None => require_account(&req, &client).await?,
+    };
+
+    let since = db::get_chat_delivery_cursor(&client, auth.group_id, account_id).await?;
+    let messages = db::list_chat_messages_since(&client, auth.group_id, since).await?;
+
+    if let Some(newest) = messages.iter().map(|m| m.message_id).max() {
+        db::advance_chat_delivery_cursor(&client, auth.group_id, account_id, newest).await?;
+    }
+
     Ok(web::Json(messages))
 }
 
@@ -1577,6 +1583,49 @@ pub async fn send_chat_message(
     }
 
     Ok(web::Json(message))
+}
+
+/// Advances the caller's read cursor - distinct from the delivery cursor `get_chat_messages`
+/// backfills against. See the "Chat history and backfill behavior" spec ticket's read-cursor
+/// section (§6): the *caller* decides when to advance this (visible-and-focused, checked
+/// client-side), this endpoint just records it and fans the new value out live so the same
+/// account's other sessions (plugin + other browser tabs) can clear their own unread dot/badge.
+/// Same dual-scope auth pattern as `send_chat_message`. Never gated on having a linked character
+/// (unlike sending) - `get_chat_messages` isn't gated either, and an account with no resolved
+/// member name just broadcasts `None`, same as `ChatMessagePayload::member_name`.
+#[post("/mark-chat-read")]
+pub async fn mark_chat_read(
+    req: HttpRequest,
+    auth: Authenticated,
+    body: web::Json<MarkChatReadRequest>,
+    db_pool: web::Data<Pool>,
+    broadcast_registry: web::Data<GroupBroadcastRegistry>,
+) -> Result<web::Json<MarkChatReadResponse>, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    let account_id = match auth.account_id {
+        Some(account_id) => account_id,
+        None => require_account(&req, &client).await?,
+    };
+
+    let requested_message_id = body.message_id.max(0);
+    let message_id =
+        db::advance_chat_read_cursor(&client, auth.group_id, account_id, requested_message_id)
+            .await?;
+
+    let member_name = db::resolve_member_name_for_account(&client, auth.group_id, account_id).await?;
+
+    let envelope = WsEnvelope::ChatRead {
+        payload: ChatReadPayload {
+            member_name,
+            message_id,
+        },
+        ts: Utc::now(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        broadcast_registry.publish(auth.group_id, json);
+    }
+
+    Ok(web::Json(MarkChatReadResponse { message_id }))
 }
 
 fn default_sessions_limit() -> i64 {

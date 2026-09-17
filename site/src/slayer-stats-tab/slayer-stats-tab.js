@@ -175,6 +175,15 @@ export class SlayerStatsTab extends BaseElement {
     `;
   }
 
+  renderCountTile(label, count) {
+    return `
+      <div class="slayer-stats-tab__tile slayer-stats-tab__tile--count">
+        <span class="slayer-stats-tab__total-n">${count.toLocaleString()}</span>
+        <span class="slayer-stats-tab__total-l">${label}</span>
+      </div>
+    `;
+  }
+
   renderBody() {
     const s = this.stats;
     if (!s) return `<div class="slayer-stats-tab__loading">Loading&hellip;</div>`;
@@ -212,6 +221,8 @@ export class SlayerStatsTab extends BaseElement {
         ${this.renderLeaderTile(s.most_cancelled_task, "Most cancelled", "&times; cancelled", true)}
         ${this.renderModifierTile(s.most_common_modifier)}
         ${this.renderFastestTile(s.fastest_completed_task)}
+        ${this.renderLeaderTile(s.most_common_boss_task, "Most common boss task", " times", false)}
+        ${this.renderCountTile("Boss tasks", s.boss_tasks_count)}
       </div>
     `;
   }

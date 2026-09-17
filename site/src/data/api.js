@@ -183,6 +183,71 @@ class Api {
     return `${this.groupScopeUrl}/get-active-raid-markers`;
   }
 
+  get chatMessagesUrl() {
+    return `${this.groupScopeUrl}/get-chat-messages`;
+  }
+
+  get sendChatMessageUrl() {
+    return `${this.groupScopeUrl}/send-chat-message`;
+  }
+
+  get markChatReadUrl() {
+    return `${this.groupScopeUrl}/mark-chat-read`;
+  }
+
+  // The chat drawer's live feed - same `/ws` handler and `Authenticated{group_id}` the RuneLite
+  // party overlay uses (see server's `websocket::party_overlay_ws`), just reached through the
+  // group-token scope instead of the character-key one. The browser `WebSocket` constructor can't
+  // set an `Authorization` header, so the token rides a `?token=` query param instead - the
+  // server's `auth_middleware.rs` falls back to it only when the header is absent. Not available
+  // in admin-view mode (no group token to send - see `authHeader`).
+  get chatSocketUrl() {
+    if (this.adminView) return undefined;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}${this.groupScopeUrl}/ws?token=${encodeURIComponent(this.authHeader)}`;
+  }
+
+  // No `since` param - the delivery cursor is tracked server-side per-account (spec §6), not
+  // client-supplied, so switching devices doesn't look like a first-ever connect.
+  async getChatMessages() {
+    const response = await fetch(this.chatMessagesUrl, {
+      headers: { Authorization: this.authHeader },
+    });
+    if (!response.ok) return [];
+    return response.json();
+  }
+
+  async sendChatMessage(text) {
+    const response = await fetch(this.sendChatMessageUrl, {
+      body: JSON.stringify({ text }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "POST",
+    });
+
+    return response;
+  }
+
+  // Advances the account's server-side read cursor (distinct from the server-side delivery
+  // cursor `getChatMessages` backfills against) - see chat-store.js's `markRead`. `messageId` is
+  // this tab's latest-seen message, not just "mark everything read".
+  async markChatRead(messageId) {
+    const response = await fetch(this.markChatReadUrl, {
+      body: JSON.stringify({ messageId }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "POST",
+    });
+    if (!response.ok) return null;
+    return response.json();
+  }
+
   setCredentials(groupName, groupToken) {
     this.groupName = groupName;
     this.groupToken = groupToken;

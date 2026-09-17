@@ -2,6 +2,24 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.503] - 2026-09-17
+
+### Added
+- Group chat now remembers what you've already read across every device and browser tab you're signed into. Read a message on your phone or in one tab, and the "new message" dot clears everywhere else that's open and focused - no more re-reading the same messages on every device.
+- Slayer Stats tab now shows your most common boss task and a total count of boss tasks assigned.
+
+### Changed
+- Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
+
+### Fixed
+- Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
+- Group chat bubble and window are now clickable on the map page - they used to be completely unresponsive there (couldn't open, close, or send a message) since the map view was silently swallowing clicks meant for it.
+
+## [1.0.502] - 2026-09-17
+
+### Added
+- Group chat is now available on the website: a chat bubble in the corner of every page opens a live chat window with your group. It shows your recent chat history, updates in real time, and lets you search through past messages. A red badge (and a marker on your browser tab) lets you know when there's something new to read.
+
 ## [1.0.498] - 2026-09-17
 
 ### Added

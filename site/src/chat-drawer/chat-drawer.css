@@ -1,0 +1,205 @@
+chat-drawer {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.chat-drawer__bubble {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: var(--chat-accent);
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-drawer__bubble-icon {
+  transform: translateY(-1px);
+}
+
+.chat-drawer__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--chat-unread-badge);
+  border: 2px solid var(--black);
+  color: white;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+  font-family: ui-sans-serif, Arial, sans-serif;
+  text-shadow: none;
+}
+
+.chat-drawer__panel {
+  position: absolute;
+  right: 0;
+  bottom: 64px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  height: 460px;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+.chat-drawer__header {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--light-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-drawer__title {
+  font-family: "rsbold", ui-sans-serif, Arial, sans-serif;
+  font-size: 16px;
+  color: var(--chat-accent);
+  flex-grow: 1;
+}
+
+.chat-drawer__close {
+  background: transparent;
+  border: none;
+  color: var(--primary-text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.chat-drawer__search-row {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--light-border);
+}
+
+.chat-drawer__search {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--darken);
+  border: 1px solid var(--light-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--primary-text);
+  font-family: "rssmall", ui-sans-serif, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.chat-drawer__list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-drawer__empty {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--light-border);
+  font-size: 13px;
+}
+
+.chat-drawer__message {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-drawer__message-time {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10px;
+  font-family: ui-sans-serif, Arial, sans-serif;
+  text-shadow: none;
+}
+
+.chat-drawer__message-name {
+  font-weight: bold;
+}
+
+.chat-drawer__message-name player-icon {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
+.chat-drawer__message-text mark {
+  background: var(--chat-accent-soft);
+  color: var(--chat-accent);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.chat-drawer__error {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  color: var(--invalid);
+  font-size: 12px;
+}
+
+.chat-drawer__composer {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-top: 2px solid var(--light-border);
+  display: flex;
+  gap: 8px;
+}
+
+.chat-drawer__composer-input {
+  flex-grow: 1;
+  min-width: 0;
+  background: var(--black);
+  border: 1px solid var(--light-border);
+  border-radius: 4px;
+  padding: 7px 9px;
+  color: var(--primary-text);
+  font-family: "rssmall", ui-sans-serif, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.chat-drawer__composer-send {
+  background: var(--chat-accent-soft);
+  border: 1px solid var(--chat-accent);
+  border-radius: 4px;
+  padding: 0 14px;
+  color: var(--chat-accent);
+  font-family: "rsbold", ui-sans-serif, Arial, sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chat-drawer__composer-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  chat-drawer {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .chat-drawer__panel {
+    width: calc(100vw - 24px);
+  }
+}

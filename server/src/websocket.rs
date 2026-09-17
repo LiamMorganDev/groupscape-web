@@ -78,8 +78,9 @@ const PING_TTL: std::time::Duration = std::time::Duration::from_secs(70);
 /// One group member's active ping, as tracked in-memory for the web map's poll endpoint
 /// (`get_active_pings`). The RuneLite-facing path doesn't need this snapshot at all - it just
 /// forwards `PingStart`/`PingUpdate`/`PingEnd` frames straight through `GroupBroadcastRegistry` as
-/// they arrive - but the web site has no websocket (see `authed::submit_ping`'s doc comment) and
-/// polls instead, which needs something to poll *from*.
+/// they arrive - but the web map itself still polls rather than reading its own `/ws` connection
+/// (the webapp's only websocket consumer today is the chat drawer - see `authed::submit_ping`'s
+/// doc comment), which needs something to poll *from*.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivePing {
@@ -339,6 +340,20 @@ pub struct ChatRateLimitedPayload {
     pub member_name: Option<String>,
 }
 
+/// Fires when an account's read cursor advances (`POST /mark-chat-read`) - see the "Chat history
+/// and backfill behavior" spec ticket's read-cursor section (§6). Broadcast group-wide, same
+/// no-per-session-targeting constraint as `ChatRateLimitedPayload`: `member_name` lets each of the
+/// *reading* account's other connected sessions (plugin + other browser tabs) recognize themselves
+/// and clear their own unread dot/badge, while every other member's session just ignores a frame
+/// that isn't about them. `message_id` is the cursor's new value (see
+/// `db::advance_chat_read_cursor` for why it can be higher than what the caller requested).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatReadPayload {
+    pub member_name: Option<String>,
+    pub message_id: i64,
+}
+
 /// Chat flood guard - see the "Minimum flood-protection guard" spec ticket. Keyed on `account_id`
 /// (not websocket connection) so it survives reconnects, per spec. Fixed window, same shape as
 /// `AdminLoginRateLimiter`: a window resets once it's been open longer than `CHAT_RATE_LIMIT_WINDOW`
@@ -549,6 +564,10 @@ pub enum WsEnvelope {
         payload: ChatRateLimitedPayload,
         ts: DateTime<Utc>,
     },
+    ChatRead {
+        payload: ChatReadPayload,
+        ts: DateTime<Utc>,
+    },
 }
 
 #[cfg(test)]
@@ -641,6 +660,22 @@ mod tests {
     }
 
     #[test]
+    fn chat_read_serializes_with_snake_case_type_and_camel_case_payload() {
+        let envelope = WsEnvelope::ChatRead {
+            payload: ChatReadPayload {
+                member_name: Some("Zezima".to_string()),
+                message_id: 42,
+            },
+            ts: DateTime::<Utc>::MIN_UTC,
+        };
+
+        let json = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(json["type"], "chat_read");
+        assert_eq!(json["payload"]["memberName"], "Zezima");
+        assert_eq!(json["payload"]["messageId"], 42);
+    }
+
+    #[test]
     fn chat_rate_limiter_allows_up_to_the_cap_then_blocks() {
         let limiter = ChatRateLimiter::new();
         for _ in 0..CHAT_RATE_LIMIT_MAX_MESSAGES {
@@ -725,12 +760,14 @@ pub fn to_wire_vitals(member: &GroupMember) -> WireVitals {
     }
 }
 
-/// `GET /api/group/{group_name}/ws` - real-time push feed for the RuneLite
-/// party overlay. Authenticated identically to the rest of `authed_scope`
-/// (same group-token header, verified by `AuthenticateMiddlewareFactory`
-/// before this handler runs). On connect, sends one `roster_snapshot` built
-/// from the current DB state, then forwards this group's broadcast channel
-/// as `vitals_update` frames until the socket closes.
+/// Real-time push feed shared by the RuneLite party overlay (`/api/characters/{account_hash}/ws`,
+/// character-key auth) and the webapp (`/api/group/{group_name}/ws`, group-token auth - see
+/// `auth_middleware.rs`'s query-param fallback for how a browser `WebSocket`, which can't set an
+/// `Authorization` header, authenticates here). Both paths resolve to the same
+/// `Authenticated{group_id}` this handler actually reads, so one implementation serves both. On
+/// connect, sends one `roster_snapshot` built from the current DB state, then forwards this
+/// group's broadcast channel - `vitals_update`, `chat_message`, and everything else in
+/// `WsEnvelope` - until the socket closes.
 pub async fn party_overlay_ws(
     req: HttpRequest,
     stream: web::Payload,
