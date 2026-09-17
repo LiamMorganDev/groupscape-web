@@ -22,6 +22,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Barrows Brothers, Maggot King, and Shellbane Gryphon boss tasks now correctly count toward your Slayer Stats boss task totals - they were being tracked but silently excluded from the stats.
 - Group chat now actually updates live - new messages, deletions, and read receipts from other tabs and group members used to only show up after a page refresh, since the site's WebSocket connection was silently never reaching the server.
 - Maggot King and Shellbane Gryphon slayer tasks now actually show their icon - the artwork shipped earlier but was never wired up, so they were still falling back to the generic unknown-task icon.
+- Group chat no longer shows "No messages yet" on top of your actual message history.
 
 ### Removed
 - Tumeken's Warden kills no longer clutter the Loot Log - like the other Tombs of Amascut boss rooms, its loot now only shows up in the raid's overall reward.

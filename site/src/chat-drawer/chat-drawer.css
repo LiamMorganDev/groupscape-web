@@ -131,6 +131,13 @@ chat-drawer {
   font-size: 13px;
 }
 
+/* Same `[hidden]` override as `.chat-drawer__bubble`/`.chat-drawer__panel` above - without it,
+   `display: flex` beats the UA `[hidden]{display:none}` rule and the empty state stays visible,
+   overlapping the message list, even when JS sets `hidden` because messages exist. */
+.chat-drawer__empty[hidden] {
+  display: none;
+}
+
 .chat-drawer__message {
   position: relative;
   display: flex;
