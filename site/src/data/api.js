@@ -215,7 +215,10 @@ class Api {
   // client-supplied, so switching devices doesn't look like a first-ever connect.
   async getChatMessages() {
     const response = await fetch(this.chatMessagesUrl, {
-      headers: { Authorization: this.authHeader },
+      headers: {
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
     });
     if (!response.ok) return [];
     return response.json();

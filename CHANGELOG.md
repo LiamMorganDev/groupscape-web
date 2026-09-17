@@ -23,6 +23,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Group chat now actually updates live - new messages, deletions, and read receipts from other tabs and group members used to only show up after a page refresh, since the site's WebSocket connection was silently never reaching the server.
 - Maggot King and Shellbane Gryphon slayer tasks now actually show their icon - the artwork shipped earlier but was never wired up, so they were still falling back to the generic unknown-task icon.
 - Group chat no longer shows "No messages yet" on top of your actual message history.
+- Group chat history loads again for logged-in accounts - it had started failing with an authorization error after the per-account read-tracking change, so messages only ever showed up over the live connection, never on page load.
 
 ### Removed
 - Tumeken's Warden kills no longer clutter the Loot Log - like the other Tombs of Amascut boss rooms, its loot now only shows up in the raid's overall reward.

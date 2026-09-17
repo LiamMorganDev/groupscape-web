@@ -381,6 +381,18 @@ describe("api", () => {
       });
     });
 
+    it("getChatMessages sends the account auth header when an account is logged in", async () => {
+      const { accountStorage } = await import("../src/data/account-storage");
+      vi.spyOn(accountStorage, "getAccountToken").mockReturnValue("account-token");
+      globalThis.fetch.mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue([]) });
+
+      await api.getChatMessages();
+
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/group/iron-team/get-chat-messages", {
+        headers: { Authorization: "secret-token", "X-Account-Authorization": "account-token" },
+      });
+    });
+
     it("getChatMessages returns an empty array on a failed response", async () => {
       globalThis.fetch.mockResolvedValueOnce({ ok: false });
 
