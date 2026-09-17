@@ -3,6 +3,7 @@ import { api } from "../data/api";
 import { chatStore } from "../data/chat-store";
 import { groupData } from "../data/group-data";
 import { adminViewSession } from "../data/admin-view-session";
+import { confirmDialogManager } from "../confirm-dialog/confirm-dialog-manager";
 
 function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
@@ -76,6 +77,7 @@ export class ChatDrawer extends BaseElement {
     this.searchQuery = "";
     this.messages = [];
     this.faviconBadged = false;
+    this.isAdmin = false;
   }
 
   html() {
@@ -116,6 +118,7 @@ export class ChatDrawer extends BaseElement {
       this.renderMessages();
     });
     this.eventListener(this.composer, "submit", (event) => this.handleSend(event), { passive: false });
+    this.eventListener(this.list, "click", (event) => this.handleListClick(event));
     this.eventListener(document, "visibilitychange", () => {
       if (!document.hidden) {
         this.clearFaviconBadge();
@@ -130,6 +133,10 @@ export class ChatDrawer extends BaseElement {
       this.maybeMarkRead();
     });
     this.subscribe("chat-unread-count", (count) => this.updateUnread(count));
+    this.subscribe("chat-is-admin", (isAdmin) => {
+      this.isAdmin = isAdmin;
+      this.renderMessages();
+    });
   }
 
   cacheFavicons() {
@@ -210,17 +217,48 @@ export class ChatDrawer extends BaseElement {
             ? `<player-icon player-name="${escapeHtml(m.memberName)}"></player-icon>`
             : "";
         const text = highlight(escapeHtml(m.text), this.searchQuery.trim());
+        const rowClass = this.isAdmin ? "chat-drawer__message chat-drawer__message--admin" : "chat-drawer__message";
+        const deleteButton = this.isAdmin
+          ? `<button class="chat-drawer__message-delete" type="button" data-message-id="${m.messageId}" aria-label="Delete message">&times;</button>`
+          : "";
         return `
-          <div class="chat-drawer__message">
+          <div class="${rowClass}">
             <span class="chat-drawer__message-time">${formatTime(m.createdAt)}</span>
             <span class="chat-drawer__message-name" style="color: ${memberColor(m.memberName)}">${icon}${name}:</span>
             <span class="chat-drawer__message-text">${text}</span>
+            ${deleteButton}
           </div>
         `;
       })
       .join("");
 
     if (wasScrolledToBottom) this.list.scrollTop = this.list.scrollHeight;
+  }
+
+  handleListClick(event) {
+    const deleteButton = event.target.closest(".chat-drawer__message-delete");
+    if (!deleteButton) return;
+    const messageId = Number(deleteButton.dataset.messageId);
+    if (!Number.isFinite(messageId)) return;
+    confirmDialogManager.confirm({
+      headline: "Delete this message?",
+      body: "This removes it for every member of the group.",
+      yesCallback: () => this.deleteMessage(messageId),
+      noCallback: () => {},
+    });
+  }
+
+  async deleteMessage(messageId) {
+    this.errorEl.hidden = true;
+    try {
+      const response = await chatStore.deleteMessage(messageId);
+      if (!response.ok) {
+        const message = await response.text().catch(() => "Failed to delete message");
+        this.showError(message || "Failed to delete message");
+      }
+    } catch {
+      this.showError("Failed to delete message");
+    }
   }
 
   async handleSend(event) {

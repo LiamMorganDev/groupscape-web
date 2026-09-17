@@ -33,6 +33,7 @@ class ChatStore {
     this.groupName = undefined;
     this.myMemberName = undefined;
     this.syncedReadCursor = 0;
+    this.isAdmin = false;
   }
 
   enable(groupName) {
@@ -42,37 +43,50 @@ class ChatStore {
     this.messages = [];
     this.myMemberName = undefined;
     this.syncedReadCursor = 0;
+    this.isAdmin = false;
     this.handleSocketMessage = this.handleSocketMessage.bind(this);
     this.handleSocketRead = this.handleSocketRead.bind(this);
+    this.handleSocketMessageDeleted = this.handleSocketMessageDeleted.bind(this);
     pubsub.subscribe("chat-socket-message", this.handleSocketMessage);
     pubsub.subscribe("chat-socket-read", this.handleSocketRead);
+    pubsub.subscribe("chat-socket-message-deleted", this.handleSocketMessageDeleted);
     chatSocket.enable();
     this.loadBackfill();
-    this.resolveMyMemberName();
+    this.resolveMyPermissions();
   }
 
   disable() {
     this.enabled = false;
     this.groupName = undefined;
     this.messages = [];
+    this.isAdmin = false;
     chatSocket.disable();
     if (this.handleSocketMessage) pubsub.unsubscribe("chat-socket-message", this.handleSocketMessage);
     if (this.handleSocketRead) pubsub.unsubscribe("chat-socket-read", this.handleSocketRead);
+    if (this.handleSocketMessageDeleted)
+      pubsub.unsubscribe("chat-socket-message-deleted", this.handleSocketMessageDeleted);
     pubsub.unpublish("chat-messages");
     pubsub.unpublish("chat-unread-count");
+    pubsub.unpublish("chat-is-admin");
   }
 
   // Resolved once per `enable()` via the same endpoint the group-settings page already uses to
-  // know "who am I" - needed to tell whether an incoming `chat_read` frame is one of *this*
+  // know "who am I" - `member_name` tells whether an incoming `chat_read` frame is one of *this*
   // account's other sessions (see `handleSocketRead`) versus another group member's, since the
-  // broadcast carries no account id (see server's `ChatReadPayload` doc comment).
-  async resolveMyMemberName() {
+  // broadcast carries no account id (see server's `ChatReadPayload` doc comment). `is_admin` gates
+  // the chat drawer's delete-`x` control (see server's `MyPermissions::is_admin` doc comment for
+  // why this can't be derived from a regular permission flag).
+  async resolveMyPermissions() {
     try {
       const response = await api.getMyPermissions();
-      this.myMemberName = response.ok ? (await response.json()).member_name ?? null : null;
+      const body = response.ok ? await response.json() : null;
+      this.myMemberName = body?.member_name ?? null;
+      this.isAdmin = body?.is_admin ?? false;
     } catch {
       this.myMemberName = null;
+      this.isAdmin = false;
     }
+    pubsub.publish("chat-is-admin", this.isAdmin);
   }
 
   async loadBackfill() {
@@ -118,6 +132,31 @@ class ChatStore {
     this.messages.sort((a, b) => a.messageId - b.messageId);
     this.publishMessages();
     this.publishUnreadCount();
+  }
+
+  // Another connected session (any member's - see server's `ChatMessageDeletedPayload` doc
+  // comment) had an admin delete a message; drop it from this tab's history live.
+  handleSocketMessageDeleted(payload) {
+    if (!payload) return;
+    this.removeMessage(payload.messageId);
+  }
+
+  removeMessage(messageId) {
+    const index = this.messages.findIndex((m) => m.messageId === messageId);
+    if (index === -1) return;
+    this.messages.splice(index, 1);
+    this.publishMessages();
+    this.publishUnreadCount();
+  }
+
+  // Called by chat-drawer.js's delete-`x` control (admin-only, server re-checks via
+  // `require_group_admin`). Removes locally on success rather than waiting for the
+  // `chat_message_deleted` broadcast to loop back - `removeMessage` is idempotent, so the
+  // broadcast arriving a moment later for this tab's own delete is just a no-op.
+  async deleteMessage(messageId) {
+    const response = await api.deleteChatMessage(messageId);
+    if (response.ok) this.removeMessage(messageId);
+    return response;
   }
 
   publishMessages() {

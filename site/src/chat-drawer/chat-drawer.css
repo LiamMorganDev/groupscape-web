@@ -20,6 +20,13 @@ chat-drawer {
   justify-content: center;
 }
 
+/* `display: flex` above beats the UA stylesheet's `[hidden] { display: none }` at equal
+   specificity (author origin always wins over UA origin) - without this override, toggling
+   `.hidden` in JS (open/close) has no visual effect and the bubble never actually hides. */
+.chat-drawer__bubble[hidden] {
+  display: none;
+}
+
 .chat-drawer__bubble-icon {
   transform: translateY(-1px);
 }
@@ -54,6 +61,12 @@ chat-drawer {
   flex-direction: column;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
   overflow: hidden;
+}
+
+/* Same `[hidden]` override as `.chat-drawer__bubble` above - without it, closing the panel
+   (X button or reopening the bubble) has no visual effect. */
+.chat-drawer__panel[hidden] {
+  display: none;
 }
 
 .chat-drawer__header {
@@ -119,12 +132,47 @@ chat-drawer {
 }
 
 .chat-drawer__message {
+  position: relative;
   display: flex;
   gap: 6px;
   align-items: baseline;
   flex-wrap: wrap;
   font-size: 13px;
   line-height: 1.4;
+  border-radius: 3px;
+}
+
+.chat-drawer__message--admin {
+  padding-right: 22px;
+}
+
+.chat-drawer__message--admin:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-drawer__message-delete {
+  display: none;
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 5px;
+}
+
+.chat-drawer__message--admin:hover .chat-drawer__message-delete {
+  display: inline-block;
+}
+
+.chat-drawer__message-delete:hover {
+  color: var(--invalid);
+  background: rgba(238, 13, 13, 0.15);
 }
 
 .chat-drawer__message-time {

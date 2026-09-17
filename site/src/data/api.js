@@ -195,6 +195,10 @@ class Api {
     return `${this.groupScopeUrl}/mark-chat-read`;
   }
 
+  deleteChatMessageUrl(messageId) {
+    return `${this.groupScopeUrl}/delete-chat-message/${messageId}`;
+  }
+
   // The chat drawer's live feed - same `/ws` handler and `Authenticated{group_id}` the RuneLite
   // party overlay uses (see server's `websocket::party_overlay_ws`), just reached through the
   // group-token scope instead of the character-key one. The browser `WebSocket` constructor can't
@@ -246,6 +250,20 @@ class Api {
     });
     if (!response.ok) return null;
     return response.json();
+  }
+
+  // Group-admin-only (server re-checks via `require_group_admin`) - see the chat drawer's
+  // delete-`x` control, only rendered when `getMyPermissions()` reports `is_admin`.
+  async deleteChatMessage(messageId) {
+    const response = await fetch(this.deleteChatMessageUrl(messageId), {
+      headers: {
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "DELETE",
+    });
+
+    return response;
   }
 
   setCredentials(groupName, groupToken) {
