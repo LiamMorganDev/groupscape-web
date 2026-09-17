@@ -22,6 +22,10 @@
   --pending-characters-accent: #c9962b;
   --pending-characters-accent-soft: rgba(201, 150, 43, 0.16);
 
+  --chat-accent: #c9962b;
+  --chat-accent-soft: rgba(201, 150, 43, 0.16);
+  --chat-unread-badge: #ff4b4b;
+
   /* Activity-feed / toast milestone accents, shared by the feed badges, the filter chips and
      the toast stack so each milestone type reads the same everywhere. */
   --activity-quest: #c9962b;

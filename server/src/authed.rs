@@ -999,8 +999,9 @@ pub struct PingRequest {
 
 /// `POST /ping` - relays a group member's ping (right-click/hotkey on an NPC or tile) to every
 /// connected RuneLite party overlay as a `PingStart`/`PingUpdate`/`PingEnd` frame, and mirrors the
-/// same lifecycle into `PingRegistry` so the web map (which has no websocket - it polls
-/// `get-active-pings` on the same cadence it already polls member positions) can pick it up too.
+/// same lifecycle into `PingRegistry` so the web map (which doesn't read pings off its own `/ws`
+/// connection - it polls `get-active-pings` on the same cadence it already polls member
+/// positions) can pick it up too.
 /// No DB write and no membership/ownership checks beyond the existing group-scope auth - the
 /// sender's own client is the sole source of truth for its ping's lifecycle (e.g. clearing the
 /// previous ping before starting a new one), matching this endpoint's ephemeral, trust-the-client

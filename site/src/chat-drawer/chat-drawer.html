@@ -1,0 +1,36 @@
+<button class="chat-drawer__bubble rsbackground rsborder-tiny" type="button" aria-label="Open group chat">
+  <span class="chat-drawer__bubble-icon" aria-hidden="true">&#9993;</span>
+  <span class="chat-drawer__badge" hidden>0</span>
+</button>
+
+<div class="chat-drawer__panel rsbackground rsborder-tiny" hidden>
+  <div class="chat-drawer__header">
+    <span class="chat-drawer__title">Group Chat</span>
+    <button class="chat-drawer__close" type="button" aria-label="Close chat">&times;</button>
+  </div>
+
+  <div class="chat-drawer__search-row">
+    <input
+      class="chat-drawer__search"
+      type="text"
+      placeholder="Search chat..."
+      aria-label="Search chat messages"
+    />
+  </div>
+
+  <div class="chat-drawer__list" aria-live="polite"></div>
+  <div class="chat-drawer__empty" hidden>No messages yet</div>
+
+  <div class="chat-drawer__error" hidden></div>
+
+  <form class="chat-drawer__composer">
+    <input
+      class="chat-drawer__composer-input"
+      type="text"
+      placeholder="Message the group..."
+      maxlength="150"
+      aria-label="Chat message"
+    />
+    <button class="chat-drawer__composer-send" type="submit">Send</button>
+  </form>
+</div>

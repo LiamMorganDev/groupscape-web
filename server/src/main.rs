@@ -231,6 +231,12 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/get-item-bonuses").route(web::get().to(authed::get_item_bonuses)))
             .service(web::resource("/get-active-pings").route(web::get().to(authed::get_active_pings)))
             .service(web::resource("/get-active-raid-markers").route(web::get().to(authed::get_active_raid_markers)))
+            // Powers the webapp chat drawer's live feed - same handler the plugin's party overlay
+            // uses at the character-key scope's own `/ws` below, since `party_overlay_ws` only
+            // ever reads the shared `Authenticated{group_id}` (see its auth-fallback note in
+            // `auth_middleware.rs` for how a browser WebSocket authenticates here without a
+            // custom header).
+            .service(web::resource("/ws").route(web::get().to(websocket::party_overlay_ws)))
             .service(authed::get_group_data)
             .service(authed::delete_group_member)
             .service(authed::block_group_member)

@@ -167,6 +167,19 @@ pub struct AuthenticateMiddleware<S> {
     cache: Arc<AuthenticationCache>,
 }
 
+/// Finds `key`'s value in a raw query string (`a=1&key=val&b=2`), URL-decoded. Used only for the
+/// `/ws` route's `Authorization`-header fallback, above.
+fn query_param(query_string: &str, key: &str) -> Option<String> {
+    query_string.split('&').find_map(|pair| {
+        let (k, v) = pair.split_once('=')?;
+        if k == key {
+            urlencoding::decode(v).ok().map(|v| v.into_owned())
+        } else {
+            None
+        }
+    })
+}
+
 /// Authenticate against the database on cache miss.
 /// Returns Ok(group_id) on success, or an error response to return directly.
 async fn authenticate_via_db(
@@ -259,21 +272,30 @@ where
             };
 
             if group_name != "_" {
-                let auth_header = match req.headers().get("Authorization") {
-                    Some(auth_header) => auth_header,
-                    None => {
-                        return Ok(req.error_response(actix_web::error::ErrorBadRequest(
-                            "Authorization header missing from request",
-                        )));
+                // The browser `WebSocket` constructor can't set an `Authorization` header (no
+                // custom-header support on the upgrade request), so the group chat drawer's `/ws`
+                // connection sends the group token as a `?token=` query param instead - the only
+                // caller that hits this fallback, since every `fetch`-based request still sends
+                // the header normally. Query params can end up in access logs / browser history
+                // exactly like the group token already does in `?token=` invite links, so this
+                // doesn't newly expose anything the token wasn't already exposed to.
+                let owned_token;
+                let token: &str = if let Some(auth_header) = req.headers().get("Authorization") {
+                    match auth_header.to_str() {
+                        Ok(token) => token,
+                        Err(_) => {
+                            return Ok(req.error_response(actix_web::error::ErrorBadRequest(
+                                "Unable to parse Authorization header",
+                            )));
+                        }
                     }
-                };
-                let token = match auth_header.to_str() {
-                    Ok(token) => token,
-                    Err(_) => {
-                        return Ok(req.error_response(actix_web::error::ErrorBadRequest(
-                            "Unable to parse Authorization header",
-                        )));
-                    }
+                } else if let Some(query_token) = query_param(req.query_string(), "token") {
+                    owned_token = query_token;
+                    owned_token.as_str()
+                } else {
+                    return Ok(req.error_response(actix_web::error::ErrorBadRequest(
+                        "Authorization header missing from request",
+                    )));
                 };
 
                 let token_hash = crate::crypto::token_hash(token, group_name);
@@ -319,7 +341,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::AuthenticationCache;
+    use super::{query_param, AuthenticationCache};
 
     #[test]
     fn caches_successful_authentication_by_group_and_token_hash() {
@@ -329,5 +351,27 @@ mod tests {
         assert_eq!(cache.get("testgroup", "valid-token-hash"), Some(42));
         assert_eq!(cache.get("testgroup", "other-token-hash"), None);
         assert_eq!(cache.get("other-group", "valid-token-hash"), None);
+    }
+
+    #[test]
+    fn query_param_finds_key_among_others() {
+        assert_eq!(
+            query_param("a=1&token=abc123&b=2", "token"),
+            Some("abc123".to_string())
+        );
+    }
+
+    #[test]
+    fn query_param_url_decodes_the_value() {
+        assert_eq!(
+            query_param("token=a%20b%2Bc", "token"),
+            Some("a b+c".to_string())
+        );
+    }
+
+    #[test]
+    fn query_param_missing_key_returns_none() {
+        assert_eq!(query_param("a=1&b=2", "token"), None);
+        assert_eq!(query_param("", "token"), None);
     }
 }

@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.499] - 2026-09-17
+
+### Added
+- Group chat is now available on the website: a chat bubble in the corner of every page opens a live chat window with your group. It shows your recent chat history, updates in real time, and lets you search through past messages. A red badge (and a marker on your browser tab) lets you know when there's something new to read.
+
 ## [1.0.498] - 2026-09-17
 
 ### Added

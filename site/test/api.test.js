@@ -363,4 +363,54 @@ describe("api", () => {
 
     expect(enableSpy).toHaveBeenCalledWith("testgroup", "token");
   });
+
+  describe("chat", () => {
+    beforeEach(() => {
+      api.setCredentials("iron-team", "secret-token");
+    });
+
+    it("getChatMessages fetches with the since cursor and returns the parsed list", async () => {
+      const messages = [{ messageId: 1, memberName: "Zezima", messageText: "gz", createdAt: "2026-01-01T00:00:00Z" }];
+      globalThis.fetch.mockResolvedValueOnce({ ok: true, json: vi.fn().mockResolvedValue(messages) });
+
+      const actual = await api.getChatMessages(5);
+
+      expect(actual).toEqual(messages);
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/group/iron-team/get-chat-messages?since=5", {
+        headers: { Authorization: "secret-token" },
+      });
+    });
+
+    it("getChatMessages returns an empty array on a failed response", async () => {
+      globalThis.fetch.mockResolvedValueOnce({ ok: false });
+
+      expect(await api.getChatMessages()).toEqual([]);
+    });
+
+    it("sendChatMessage posts the trimmed text and account auth headers", async () => {
+      globalThis.fetch.mockResolvedValueOnce({ ok: true });
+
+      await api.sendChatMessage("gz on the pet");
+
+      expect(globalThis.fetch).toHaveBeenCalledWith("/api/group/iron-team/send-chat-message", {
+        body: JSON.stringify({ text: "gz on the pet" }),
+        headers: { "Content-Type": "application/json", Authorization: "secret-token" },
+        method: "POST",
+      });
+    });
+
+    it("chatSocketUrl builds a ws(s) url carrying the group token as a query param", () => {
+      expect(api.chatSocketUrl).toBe(
+        `ws://${window.location.host}/api/group/iron-team/ws?token=${encodeURIComponent("secret-token")}`
+      );
+    });
+
+    it("chatSocketUrl is undefined in admin-view mode", () => {
+      api.adminView = true;
+      api.adminToken = "admin-bearer";
+      api.adminViewGroupId = 42;
+
+      expect(api.chatSocketUrl).toBeUndefined();
+    });
+  });
 });

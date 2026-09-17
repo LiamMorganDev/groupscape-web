@@ -9,6 +9,7 @@ import { loadingScreenManager } from "../loading-screen/loading-screen-manager";
 import { AchievementDiary } from "../data/diaries";
 import { toastSource } from "../data/toast-source";
 import { combatAchievement } from "../data/combat-achievement";
+import { chatStore } from "../data/chat-store";
 
 export class AppInitializer extends BaseElement {
   constructor() {
@@ -39,6 +40,7 @@ export class AppInitializer extends BaseElement {
   cleanup() {
     api.disable();
     toastSource.disable();
+    chatStore.disable();
     // Unpublish everything to prevent any data leaking over into another session
     pubsub.unpublishAll();
     loadingScreenManager.hideLoadingScreen();
@@ -77,6 +79,7 @@ export class AppInitializer extends BaseElement {
     await api.enable(group.groupName, group.groupToken);
     await firstDataEvent;
     toastSource.enable();
+    chatStore.enable(group.groupName);
   }
 
   // A global admin viewing a group's dashboard read-only - see `admin-view-session.js`. Reuses

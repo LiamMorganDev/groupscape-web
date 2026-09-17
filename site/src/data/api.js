@@ -183,6 +183,48 @@ class Api {
     return `${this.groupScopeUrl}/get-active-raid-markers`;
   }
 
+  get chatMessagesUrl() {
+    return `${this.groupScopeUrl}/get-chat-messages`;
+  }
+
+  get sendChatMessageUrl() {
+    return `${this.groupScopeUrl}/send-chat-message`;
+  }
+
+  // The chat drawer's live feed - same `/ws` handler and `Authenticated{group_id}` the RuneLite
+  // party overlay uses (see server's `websocket::party_overlay_ws`), just reached through the
+  // group-token scope instead of the character-key one. The browser `WebSocket` constructor can't
+  // set an `Authorization` header, so the token rides a `?token=` query param instead - the
+  // server's `auth_middleware.rs` falls back to it only when the header is absent. Not available
+  // in admin-view mode (no group token to send - see `authHeader`).
+  get chatSocketUrl() {
+    if (this.adminView) return undefined;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}${this.groupScopeUrl}/ws?token=${encodeURIComponent(this.authHeader)}`;
+  }
+
+  async getChatMessages(since = 0) {
+    const response = await fetch(`${this.chatMessagesUrl}?since=${since}`, {
+      headers: { Authorization: this.authHeader },
+    });
+    if (!response.ok) return [];
+    return response.json();
+  }
+
+  async sendChatMessage(text) {
+    const response = await fetch(this.sendChatMessageUrl, {
+      body: JSON.stringify({ text }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "POST",
+    });
+
+    return response;
+  }
+
   setCredentials(groupName, groupToken) {
     this.groupName = groupName;
     this.groupToken = groupToken;
