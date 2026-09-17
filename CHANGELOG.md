@@ -12,6 +12,7 @@ All notable changes to GroupScape web are logged here, newest first.
 
 ### Changed
 - Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
+- Internal: the OSRS data-refresh tooling can now also detect achievement diary task changes and new slayer task types straight from the wiki, and tracks partial drop-rate coverage for a future cleanup pass.
 
 ### Fixed
 - Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.

@@ -33,6 +33,8 @@ nocommit
 scripts/osrs-data/new-bosses-report.json
 scripts/osrs-data/new-quests-report.json
 scripts/osrs-data/new-ca-tasks-report.json
+scripts/osrs-data/new-diary-tasks-report.json
+scripts/osrs-data/new-slayer-tasks-report.json
 
 # Playwright
 playwright-report/
