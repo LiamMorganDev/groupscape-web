@@ -16,6 +16,7 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Fixed
 - Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
 - Group chat bubble and window are now clickable on the map page - they used to be completely unresponsive there (couldn't open, close, or send a message) since the map view was silently swallowing clicks meant for it.
+- Maggot King and Shellbane Gryphon slayer tasks now actually show their icon - the artwork shipped earlier but was never wired up, so they were still falling back to the generic unknown-task icon.
 
 ### Removed
 - Tumeken's Warden kills no longer clutter the Loot Log - like the other Tombs of Amascut boss rooms, its loot now only shows up in the raid's overall reward.

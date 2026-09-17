@@ -184,6 +184,8 @@ const SLAYER_MONSTER_ICONS = {
   "king black dragon": "king-black-dragon",
   vorkath: "vorkath",
   zulrah: "zulrah",
+  "maggot king": "maggot-king",
+  "shellbane gryphon": "shellbane-gryphon",
   "phantom muspah": "phantom-muspah",
   araxxor: "araxxor",
 };
