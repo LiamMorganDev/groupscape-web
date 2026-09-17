@@ -285,6 +285,11 @@ pub struct SlayerTaskStats {
     pub most_common_modifier: Option<SlayerModifierLeader>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fastest_completed_task: Option<SlayerTaskDurationLeader>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub most_common_boss_task: Option<SlayerTaskLeader>,
+    /// Count of all-time assignments whose task_name is one of [`crate::slayer_boss_tasks`]'s
+    /// assignable bosses, any status - matches `most_common_task`'s all-statuses scope.
+    pub boss_tasks_count: i64,
 }
 
 #[derive(Deserialize)]

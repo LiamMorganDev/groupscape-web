@@ -1,6 +1,7 @@
 use crate::crypto::token_hash;
 use crate::drop_rates::slugify_npc_name;
 use crate::error::ApiError;
+use crate::slayer_boss_tasks;
 use crate::models::{
     ActivityEvent, AdminAccountCharacter, AdminAccountDetail, AdminAccountGroup,
     AdminAccountSession, AdminAccountSummary, AdminAuditLogEntry, AdminDashboard,
@@ -6286,6 +6287,40 @@ LIMIT 1
         })
         .transpose()?;
 
+    let boss_task_names = slayer_boss_tasks::names();
+    let boss_stmt = client
+        .prepare_cached(
+            r#"
+SELECT task_name, COUNT(*) AS n
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND lower(task_name) = ANY($3)
+GROUP BY task_name
+ORDER BY n DESC
+LIMIT 1
+"#,
+        )
+        .await?;
+    let most_common_boss_task = client
+        .query(&boss_stmt, &[&group_id, &member_name, &boss_task_names])
+        .await?
+        .first()
+        .map(slayer_task_leader_from_row)
+        .transpose()?;
+
+    let boss_count_stmt = client
+        .prepare_cached(
+            r#"
+SELECT COUNT(*) AS n
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND lower(task_name) = ANY($3)
+"#,
+        )
+        .await?;
+    let boss_tasks_count: i64 = client
+        .query_one(&boss_count_stmt, &[&group_id, &member_name, &boss_task_names])
+        .await?
+        .try_get("n")?;
+
     Ok(SlayerTaskStats {
         tasks_completed,
         total_kills,
@@ -6297,6 +6332,8 @@ LIMIT 1
         most_cancelled_task,
         most_common_modifier,
         fastest_completed_task,
+        most_common_boss_task,
+        boss_tasks_count,
     })
 }
 

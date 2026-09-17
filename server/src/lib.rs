@@ -32,6 +32,7 @@ pub mod progress_events;
 pub mod push;
 pub mod quest_ids;
 pub mod raid_merge;
+pub mod slayer_boss_tasks;
 pub mod unauthed;
 pub mod update_batcher;
 pub mod validators;

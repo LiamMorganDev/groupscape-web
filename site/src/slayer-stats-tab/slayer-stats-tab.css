@@ -140,6 +140,12 @@ slayer-stats-tab {
   grid-column: 1 / -1;
 }
 
+.slayer-stats-tab__tile--count {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 .slayer-stats-tab__rate-row {
   display: flex;
   align-items: center;
