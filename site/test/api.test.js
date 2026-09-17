@@ -417,6 +417,19 @@ describe("api", () => {
       );
     });
 
+    it("chatSocketUrl resolves correctly when baseUrl has been rewritten to an absolute URL", () => {
+      // Mirrors production: docker-entrypoint.sh sed-rewrites `baseUrl` from "/api" to
+      // "${HOST_URL}/api" before bundling, so `groupScopeUrl` is absolute there. Concatenating
+      // `window.location.host` in front of an already-absolute URL used to double the origin.
+      api.baseUrl = "https://groupscape.online/api";
+
+      expect(api.chatSocketUrl).toBe(
+        `wss://groupscape.online/api/group/iron-team/ws?token=${encodeURIComponent("secret-token")}`
+      );
+
+      api.baseUrl = "/api";
+    });
+
     it("chatSocketUrl is undefined in admin-view mode", () => {
       api.adminView = true;
       api.adminToken = "admin-bearer";

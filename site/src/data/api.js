@@ -205,10 +205,21 @@ class Api {
   // set an `Authorization` header, so the token rides a `?token=` query param instead - the
   // server's `auth_middleware.rs` falls back to it only when the header is absent. Not available
   // in admin-view mode (no group token to send - see `authHeader`).
+  //
+  // Resolved via `URL` rather than hand-concatenating `window.location.host` in front of
+  // `groupScopeUrl`: production's `docker-entrypoint.sh` sed-rewrites `baseUrl` from `/api` to
+  // `${HOST_URL}/api` (an absolute URL) before bundling, so `groupScopeUrl` is absolute in prod
+  // and relative everywhere else. Concatenating `window.location.host` onto an already-absolute
+  // `groupScopeUrl` doubled the origin (`wss://groupscape.onlinehttps://groupscape.online/...`),
+  // which every browser's URL parser reads as a bogus host, so the socket never connects. `new
+  // URL(path, base)` ignores `base` whenever `path` is already absolute, so this resolves
+  // correctly either way.
   get chatSocketUrl() {
     if (this.adminView) return undefined;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}${this.groupScopeUrl}/ws?token=${encodeURIComponent(this.authHeader)}`;
+    const resolved = new URL(`${this.groupScopeUrl}/ws`, window.location.origin);
+    resolved.protocol = resolved.protocol === "https:" ? "wss:" : "ws:";
+    resolved.searchParams.set("token", this.authHeader);
+    return resolved.toString();
   }
 
   // No `since` param - the delivery cursor is tracked server-side per-account (spec §6), not
