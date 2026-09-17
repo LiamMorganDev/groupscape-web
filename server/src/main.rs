@@ -258,6 +258,7 @@ async fn main() -> std::io::Result<()> {
             .service(authed::add_activity_comment)
             .service(authed::get_chat_messages)
             .service(authed::send_chat_message)
+            .service(authed::mark_chat_read)
             .service(authed::rename_group)
             .service(authed::reroll_group_token)
             .service(authed::delete_group)
@@ -387,7 +388,8 @@ async fn main() -> std::io::Result<()> {
                     .wrap(grouped_character_middleware())
                     .service(authed::get_group_data)
                     .service(authed::get_chat_messages)
-                    .service(authed::send_chat_message),
+                    .service(authed::send_chat_message)
+                    .service(authed::mark_chat_read),
             );
         let admin_scope = web::scope("/api/admin")
             .wrap(AdminAuthenticateMiddlewareFactory::new(

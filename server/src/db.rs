@@ -3157,6 +3157,30 @@ CREATE INDEX IF NOT EXISTS chat_messages_group_id_idx ON groupscape.chat_message
         transaction.commit().await?;
     }
 
+    // Read cursor - distinct from the delivery cursor (§6's "since" backfill param). Own table
+    // rather than a column on `accounts`: read state is per-(group, account), not account-global,
+    // matching `chat_messages` itself being group-scoped.
+    if !has_migration_run(client, "create_chat_read_cursors_table").await? {
+        let transaction = client.transaction().await?;
+        transaction
+            .execute(
+                r#"
+CREATE TABLE IF NOT EXISTS groupscape.chat_read_cursors (
+  group_id BIGINT NOT NULL REFERENCES groupscape.groups(group_id) ON DELETE CASCADE,
+  account_id BIGINT NOT NULL REFERENCES groupscape.accounts(id) ON DELETE CASCADE,
+  last_read_message_id BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (group_id, account_id)
+);
+"#,
+                &[],
+            )
+            .await?;
+
+        commit_migration(&transaction, "create_chat_read_cursors_table").await?;
+        transaction.commit().await?;
+    }
+
     Ok(())
 }
 
@@ -5483,6 +5507,37 @@ RETURNING message_id, member_name, message_text, created_at
         message_text: row.try_get("message_text")?,
         created_at: row.try_get("created_at")?,
     })
+}
+
+/// Advances the caller's read cursor to `message_id`, never backwards - `GREATEST` guards against
+/// a stale/out-of-order request (e.g. two of the account's sessions racing) rewinding a cursor
+/// another session already pushed further. Returns the resulting cursor value (which may be higher
+/// than `message_id` if another session got there first), so the caller broadcasts and echoes back
+/// what's actually true rather than what was merely requested. See the "Chat history and backfill
+/// behavior" spec ticket's read-cursor section (§6).
+pub async fn advance_chat_read_cursor(
+    client: &Client,
+    group_id: i64,
+    account_id: i64,
+    message_id: i64,
+) -> Result<i64, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+INSERT INTO groupscape.chat_read_cursors (group_id, account_id, last_read_message_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (group_id, account_id) DO UPDATE
+SET last_read_message_id = GREATEST(chat_read_cursors.last_read_message_id, EXCLUDED.last_read_message_id),
+    updated_at = now()
+RETURNING last_read_message_id
+"#,
+        )
+        .await?;
+    let row = client
+        .query_one(&stmt, &[&group_id, &account_id, &message_id])
+        .await
+        .map_err(ApiError::AdvanceChatReadCursorError)?;
+    Ok(row.try_get("last_read_message_id")?)
 }
 
 /// Inserts a comment, enforcing the 10-per-event cap atomically via a `WHERE COUNT(*) < 10`

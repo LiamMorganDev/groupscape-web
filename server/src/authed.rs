@@ -21,10 +21,11 @@ use crate::models::{
     DiscordWebhookSettings, GameEvent, GroupCredentials, GroupMember, GroupMemberName,
     GroupMemberPermissions, GroupMetricData, GroupSession, GroupSkillData, IdentifyCharacter,
     ItemBonusesResponse, LootItem, LootLogEvent, LootLogItem, LootLogPage, LootLogSummary,
-    MyPermissions, PermissionFlags, PermissionKey, ReactToActivityEventRequest, RenameGroup,
-    SendChatMessageRequest, SlayerTaskHistoryPage, SlayerTaskStats, TestDiscordNotificationRequest,
-    UpdateGroupPermissionsRequest, UpdateMemberColorRequest, ACTIVITY_COMMENT_MAX_LEN,
-    ACTIVITY_REACTION_KINDS, CHAT_MESSAGE_MAX_LEN, SHARED_MEMBER,
+    MarkChatReadRequest, MarkChatReadResponse, MyPermissions, PermissionFlags, PermissionKey,
+    ReactToActivityEventRequest, RenameGroup, SendChatMessageRequest, SlayerTaskHistoryPage,
+    SlayerTaskStats, TestDiscordNotificationRequest, UpdateGroupPermissionsRequest,
+    UpdateMemberColorRequest, ACTIVITY_COMMENT_MAX_LEN, ACTIVITY_REACTION_KINDS,
+    CHAT_MESSAGE_MAX_LEN, SHARED_MEMBER,
 };
 use crate::notable_npcs;
 use crate::permissions::{
@@ -37,7 +38,7 @@ use crate::update_batcher;
 use crate::unauthed::get_ge_prices_map;
 use crate::validators::{valid_name, validate_member_prop_length, ArrayFormat};
 use crate::websocket::{
-    self, ActivePing, ActiveRaidMarker, ChatMessagePayload, DropEventPayload,
+    self, ActivePing, ActiveRaidMarker, ChatMessagePayload, ChatReadPayload, DropEventPayload,
     GroupBroadcastRegistry, KillEventPayload, MarkerType, PingEndPayload, PingKind, PingRegistry,
     PingStartPayload, PingUpdatePayload, RaidMarkerEndPayload, RaidMarkerRegistry,
     RaidMarkerStartPayload, RaidMarkerUpdatePayload, VitalsUpdatePayload, WsEnvelope,
@@ -1578,6 +1579,49 @@ pub async fn send_chat_message(
     }
 
     Ok(web::Json(message))
+}
+
+/// Advances the caller's read cursor - distinct from the delivery cursor `get_chat_messages`
+/// backfills against. See the "Chat history and backfill behavior" spec ticket's read-cursor
+/// section (§6): the *caller* decides when to advance this (visible-and-focused, checked
+/// client-side), this endpoint just records it and fans the new value out live so the same
+/// account's other sessions (plugin + other browser tabs) can clear their own unread dot/badge.
+/// Same dual-scope auth pattern as `send_chat_message`. Never gated on having a linked character
+/// (unlike sending) - `get_chat_messages` isn't gated either, and an account with no resolved
+/// member name just broadcasts `None`, same as `ChatMessagePayload::member_name`.
+#[post("/mark-chat-read")]
+pub async fn mark_chat_read(
+    req: HttpRequest,
+    auth: Authenticated,
+    body: web::Json<MarkChatReadRequest>,
+    db_pool: web::Data<Pool>,
+    broadcast_registry: web::Data<GroupBroadcastRegistry>,
+) -> Result<web::Json<MarkChatReadResponse>, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    let account_id = match auth.account_id {
+        Some(account_id) => account_id,
+        None => require_account(&req, &client).await?,
+    };
+
+    let requested_message_id = body.message_id.max(0);
+    let message_id =
+        db::advance_chat_read_cursor(&client, auth.group_id, account_id, requested_message_id)
+            .await?;
+
+    let member_name = db::resolve_member_name_for_account(&client, auth.group_id, account_id).await?;
+
+    let envelope = WsEnvelope::ChatRead {
+        payload: ChatReadPayload {
+            member_name,
+            message_id,
+        },
+        ts: Utc::now(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        broadcast_registry.publish(auth.group_id, json);
+    }
+
+    Ok(web::Json(MarkChatReadResponse { message_id }))
 }
 
 fn default_sessions_limit() -> i64 {

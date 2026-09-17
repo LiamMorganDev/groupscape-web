@@ -340,6 +340,20 @@ pub struct ChatRateLimitedPayload {
     pub member_name: Option<String>,
 }
 
+/// Fires when an account's read cursor advances (`POST /mark-chat-read`) - see the "Chat history
+/// and backfill behavior" spec ticket's read-cursor section (§6). Broadcast group-wide, same
+/// no-per-session-targeting constraint as `ChatRateLimitedPayload`: `member_name` lets each of the
+/// *reading* account's other connected sessions (plugin + other browser tabs) recognize themselves
+/// and clear their own unread dot/badge, while every other member's session just ignores a frame
+/// that isn't about them. `message_id` is the cursor's new value (see
+/// `db::advance_chat_read_cursor` for why it can be higher than what the caller requested).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatReadPayload {
+    pub member_name: Option<String>,
+    pub message_id: i64,
+}
+
 /// Chat flood guard - see the "Minimum flood-protection guard" spec ticket. Keyed on `account_id`
 /// (not websocket connection) so it survives reconnects, per spec. Fixed window, same shape as
 /// `AdminLoginRateLimiter`: a window resets once it's been open longer than `CHAT_RATE_LIMIT_WINDOW`
@@ -550,6 +564,10 @@ pub enum WsEnvelope {
         payload: ChatRateLimitedPayload,
         ts: DateTime<Utc>,
     },
+    ChatRead {
+        payload: ChatReadPayload,
+        ts: DateTime<Utc>,
+    },
 }
 
 #[cfg(test)]
@@ -639,6 +657,22 @@ mod tests {
         let json = serde_json::to_value(&envelope).unwrap();
         assert_eq!(json["type"], "chat_rate_limited");
         assert_eq!(json["payload"]["memberName"], "Zezima");
+    }
+
+    #[test]
+    fn chat_read_serializes_with_snake_case_type_and_camel_case_payload() {
+        let envelope = WsEnvelope::ChatRead {
+            payload: ChatReadPayload {
+                member_name: Some("Zezima".to_string()),
+                message_id: 42,
+            },
+            ts: DateTime::<Utc>::MIN_UTC,
+        };
+
+        let json = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(json["type"], "chat_read");
+        assert_eq!(json["payload"]["memberName"], "Zezima");
+        assert_eq!(json["payload"]["messageId"], 42);
     }
 
     #[test]

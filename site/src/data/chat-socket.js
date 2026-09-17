@@ -10,9 +10,9 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
 // Owns the webapp's one WebSocket connection to `/api/group/{group_name}/ws` (see `api.js`'s
 // `chatSocketUrl`) for the chat drawer's live feed. The same endpoint also sends
 // `roster_snapshot`/`vitals_update`/etc. frames (it's shared with the RuneLite party overlay -
-// see server's `party_overlay_ws`), but this client only republishes the `chat_message` and
-// `chat_rate_limited` envelope types onto pubsub; everything else is ignored since the webapp
-// already gets roster/vitals data from its own poll loop.
+// see server's `party_overlay_ws`), but this client only republishes the `chat_message`,
+// `chat_rate_limited`, and `chat_read` envelope types onto pubsub; everything else is ignored
+// since the webapp already gets roster/vitals data from its own poll loop.
 class ChatSocket {
   constructor() {
     this.enabled = false;
@@ -63,6 +63,8 @@ class ChatSocket {
         pubsub.publish("chat-socket-message", envelope.payload);
       } else if (envelope.type === "chat_rate_limited") {
         pubsub.publish("chat-socket-rate-limited", envelope.payload);
+      } else if (envelope.type === "chat_read") {
+        pubsub.publish("chat-socket-read", envelope.payload);
       }
     };
 

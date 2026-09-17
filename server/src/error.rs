@@ -180,6 +180,8 @@ pub enum ApiError {
     #[from(ignore)]
     ChatMessageValidationError(String),
     ChatRateLimited,
+    #[from(ignore)]
+    AdvanceChatReadCursorError(tokio_postgres::error::Error),
 }
 impl std::error::Error for ApiError {}
 fn handle_pg_error(err: &tokio_postgres::error::Error, name: &str) -> HttpResponse {
@@ -448,6 +450,9 @@ impl ResponseError for ApiError {
             }
             ApiError::ChatRateLimited => HttpResponse::TooManyRequests()
                 .body("Too many chat messages - slow down and try again shortly"),
+            ApiError::AdvanceChatReadCursorError(ref err) => {
+                handle_pg_error(err, "AdvanceChatReadCursorError")
+            }
         }
     }
 }

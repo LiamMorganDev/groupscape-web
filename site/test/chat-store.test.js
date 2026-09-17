@@ -9,8 +9,12 @@ describe("chat-store", () => {
     chatStore.enabled = false;
     chatStore.messages = [];
     chatStore.groupName = undefined;
+    chatStore.myMemberName = undefined;
+    chatStore.syncedReadCursor = 0;
     localStorage.clear();
     vi.spyOn(api, "getChatMessages").mockResolvedValue([]);
+    vi.spyOn(api, "getMyPermissions").mockResolvedValue({ ok: true, json: async () => ({ member_name: "Zezima" }) });
+    vi.spyOn(api, "markChatRead").mockResolvedValue({ messageId: 0 });
     vi.spyOn(chatSocket, "enable").mockImplementation(() => {});
     vi.spyOn(chatSocket, "disable").mockImplementation(() => {});
     pubsub.unpublish("chat-messages");
@@ -103,6 +107,68 @@ describe("chat-store", () => {
     await chatStore.loadBackfill();
 
     expect(unread).toBe(1);
+  });
+
+  it("markRead syncs the newest message id to the server read cursor", async () => {
+    api.getChatMessages.mockResolvedValue([
+      { messageId: 1, memberName: "Zezima", messageText: "gz", createdAt: "2026-01-01T00:00:00Z" },
+      { messageId: 5, memberName: "Woox", messageText: "gg", createdAt: "2026-01-01T00:01:00Z" },
+    ]);
+    chatStore.enable("Iron Foundry");
+    await chatStore.loadBackfill();
+
+    chatStore.markRead();
+    await Promise.resolve();
+
+    expect(api.markChatRead).toHaveBeenCalledWith(5);
+  });
+
+  it("markRead does not re-sync a message id already synced to the server", async () => {
+    api.getChatMessages.mockResolvedValue([
+      { messageId: 5, memberName: "Woox", messageText: "gg", createdAt: "2026-01-01T00:01:00Z" },
+    ]);
+    chatStore.enable("Iron Foundry");
+    await chatStore.loadBackfill();
+
+    chatStore.markRead();
+    await Promise.resolve();
+    chatStore.markRead();
+    await Promise.resolve();
+
+    expect(api.markChatRead).toHaveBeenCalledTimes(1);
+  });
+
+  it("an incoming chat_read frame from this account's own member clears the unread badge", async () => {
+    localStorage.setItem("chat-last-read-message-id:Iron Foundry", "1");
+    api.getChatMessages.mockResolvedValue([
+      { messageId: 1, memberName: "Zezima", messageText: "gz", createdAt: "2026-01-01T00:00:00Z" },
+      { messageId: 2, memberName: "Woox", messageText: "gg", createdAt: "2026-01-01T00:01:00Z" },
+    ]);
+    chatStore.enable("Iron Foundry");
+    await chatStore.loadBackfill();
+    await Promise.resolve(); // let resolveMyMemberName's getMyPermissions mock resolve
+
+    let unread;
+    pubsub.subscribe("chat-unread-count", (count) => (unread = count), false);
+    chatStore.handleSocketRead({ memberName: "Zezima", messageId: 2 });
+
+    expect(unread).toBe(0);
+    expect(localStorage.getItem("chat-last-read-message-id:Iron Foundry")).toBe("2");
+  });
+
+  it("ignores a chat_read frame for a different group member", async () => {
+    localStorage.setItem("chat-last-read-message-id:Iron Foundry", "1");
+    api.getChatMessages.mockResolvedValue([
+      { messageId: 1, memberName: "Zezima", messageText: "gz", createdAt: "2026-01-01T00:00:00Z" },
+      { messageId: 2, memberName: "Woox", messageText: "gg", createdAt: "2026-01-01T00:01:00Z" },
+    ]);
+    chatStore.enable("Iron Foundry");
+    await chatStore.loadBackfill();
+    await Promise.resolve();
+
+    chatStore.handleSocketRead({ memberName: "Woox", messageId: 2 });
+
+    expect(localStorage.getItem("chat-last-read-message-id:Iron Foundry")).toBe("1");
   });
 
   it("disable tears down the socket subscription and clears published state", async () => {

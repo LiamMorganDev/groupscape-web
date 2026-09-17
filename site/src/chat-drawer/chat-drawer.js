@@ -63,9 +63,12 @@ function buildBadgedFavicon(baseHref, onReady) {
  * a dedicated nav tab - see the approved chat-panel design) that expands into a drawer showing
  * the same ~200-message backfill + live feed as the RuneLite side-panel Chat tab. Search filters
  * that already-loaded set client-side (no server-side search endpoint - out of scope per spec
- * §9). Unread state is inferred client-side (`chat-store.js`) since the server has no read-cursor
- * yet (spec §6, still open) - a badge dot on the bubble, plus a favicon badge + title prefix
- * while the tab is hidden.
+ * §9). A badge dot on the bubble, plus a favicon badge + title prefix while the tab is hidden.
+ *
+ * Read-cursor auto-advance (spec §6) only fires while the drawer is both open (visible) and this
+ * browser tab has OS focus - `maybeMarkRead` is the single gate for that rule, called from every
+ * place the visible/focused state could have just become true (open, window focus, tab becoming
+ * visible, a new message arriving while already open+focused).
  */
 export class ChatDrawer extends BaseElement {
   constructor() {
@@ -114,12 +117,17 @@ export class ChatDrawer extends BaseElement {
     });
     this.eventListener(this.composer, "submit", (event) => this.handleSend(event), { passive: false });
     this.eventListener(document, "visibilitychange", () => {
-      if (!document.hidden) this.clearFaviconBadge();
+      if (!document.hidden) {
+        this.clearFaviconBadge();
+        this.maybeMarkRead();
+      }
     });
+    this.eventListener(window, "focus", () => this.maybeMarkRead());
 
     this.subscribe("chat-messages", (messages) => {
       this.messages = messages;
       this.renderMessages();
+      this.maybeMarkRead();
     });
     this.subscribe("chat-unread-count", (count) => this.updateUnread(count));
   }
@@ -136,13 +144,23 @@ export class ChatDrawer extends BaseElement {
     this.panel.hidden = false;
     this.bubble.hidden = true;
     this.searchInput.focus();
-    chatStore.markRead();
     this.clearFaviconBadge();
+    this.maybeMarkRead();
   }
 
   close() {
     this.panel.hidden = true;
     this.bubble.hidden = false;
+  }
+
+  // Visible = drawer panel open; focused = this browser tab has OS focus (Page Visibility API /
+  // `document.hasFocus()`) - selected-but-unfocused deliberately doesn't advance the cursor (spec
+  // §6). `document.hasFocus()` alone would count a background tab that's simply not hidden yet
+  // (e.g. mid-transition), so both checks apply.
+  maybeMarkRead() {
+    if (!this.panel || this.panel.hidden) return;
+    if (document.hidden || !document.hasFocus()) return;
+    chatStore.markRead();
   }
 
   updateUnread(count) {

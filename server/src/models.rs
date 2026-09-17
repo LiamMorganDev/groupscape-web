@@ -1061,6 +1061,25 @@ pub struct SendChatMessageRequest {
     pub text: String,
 }
 
+/// `messageId` is the client's latest-seen id, not a bare "mark everything read" flag - lets a
+/// caller mark read up to a specific point (e.g. what's currently scrolled into view) rather than
+/// always jumping to the group's true latest. `rename_all = "camelCase"` since this is a
+/// dual-scope request body (plugin + webapp), matching `PingRequest`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarkChatReadRequest {
+    pub message_id: i64,
+}
+
+/// Echoes back the cursor's actual resulting value - see
+/// `db::advance_chat_read_cursor`'s doc comment for why that can differ from the request's
+/// `messageId`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarkChatReadResponse {
+    pub message_id: i64,
+}
+
 /// One item entry within a [`LootLogEvent`] - the loot log's per-event, per-item view (unlike
 /// the deleted `LootSummaryRow`, this doesn't pre-aggregate across events, so the client can do
 /// the 45-minute session merge itself from raw per-event timestamps).

@@ -191,6 +191,10 @@ class Api {
     return `${this.groupScopeUrl}/send-chat-message`;
   }
 
+  get markChatReadUrl() {
+    return `${this.groupScopeUrl}/mark-chat-read`;
+  }
+
   // The chat drawer's live feed - same `/ws` handler and `Authenticated{group_id}` the RuneLite
   // party overlay uses (see server's `websocket::party_overlay_ws`), just reached through the
   // group-token scope instead of the character-key one. The browser `WebSocket` constructor can't
@@ -223,6 +227,23 @@ class Api {
     });
 
     return response;
+  }
+
+  // Advances the account's server-side read cursor (distinct from the `since` delivery cursor
+  // `getChatMessages` backfills against) - see chat-store.js's `markRead`. `messageId` is this
+  // tab's latest-seen message, not just "mark everything read".
+  async markChatRead(messageId) {
+    const response = await fetch(this.markChatReadUrl, {
+      body: JSON.stringify({ messageId }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: this.authHeader,
+        ...this.accountAuthHeaders,
+      },
+      method: "POST",
+    });
+    if (!response.ok) return null;
+    return response.json();
   }
 
   setCredentials(groupName, groupToken) {

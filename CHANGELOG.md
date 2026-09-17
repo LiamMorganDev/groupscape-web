@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.503] - 2026-09-17
+
+### Added
+- Group chat now remembers what you've already read across every device and browser tab you're signed into. Read a message on your phone or in one tab, and the "new message" dot clears everywhere else that's open and focused - no more re-reading the same messages on every device.
+
 ## [1.0.502] - 2026-09-17
 
 ### Added
