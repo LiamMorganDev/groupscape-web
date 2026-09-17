@@ -223,6 +223,7 @@ export class SlayerStatsTab extends BaseElement {
         ${this.renderFastestTile(s.fastest_completed_task)}
         ${this.renderLeaderTile(s.most_common_boss_task, "Most common boss task", " times", false)}
         ${this.renderCountTile("Boss tasks", s.boss_tasks_count)}
+        ${this.renderCountTile("Boss task kills", s.boss_task_kills)}
       </div>
     `;
   }

@@ -7,6 +7,7 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Added
 - Group chat now remembers what you've already read across every device and browser tab you're signed into. Read a message on your phone or in one tab, and the "new message" dot clears everywhere else that's open and focused - no more re-reading the same messages on every device.
 - Slayer Stats tab now shows your most common boss task and a total count of boss tasks assigned.
+- Slayer Stats tab now also shows your total boss task kill count alongside the boss task count.
 - Group admins can now delete other members' messages from the group chat.
 - Maggot King and Shellbane Gryphon boss tasks now show an icon in your Slayer Stats.
 
@@ -18,6 +19,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
 - Group chat bubble and window are now clickable on the map page - they used to be completely unresponsive there (couldn't open, close, or send a message) since the map view was silently swallowing clicks meant for it.
 - Group chat window can actually be closed again - the X button and the chat bubble icon had stopped closing it on every page, not just the map.
+- Barrows Brothers, Maggot King, and Shellbane Gryphon boss tasks now correctly count toward your Slayer Stats boss task totals - they were being tracked but silently excluded from the stats.
 - Group chat now actually updates live - new messages, deletions, and read receipts from other tabs and group members used to only show up after a page refresh, since the site's WebSocket connection was silently never reaching the server.
 - Maggot King and Shellbane Gryphon slayer tasks now actually show their icon - the artwork shipped earlier but was never wired up, so they were still falling back to the generic unknown-task icon.
 

@@ -6345,6 +6345,29 @@ WHERE group_id=$1 AND member_name=$2 AND lower(task_name) = ANY($3)
         .await?
         .try_get("n")?;
 
+    let boss_kills_stmt = client
+        .prepare_cached(
+            r#"
+SELECT COALESCE(SUM(amount_done), 0) AS n
+FROM groupscape.slayer_task_history
+WHERE group_id=$1 AND member_name=$2 AND status = 'completed' AND lower(task_name) = ANY($3)
+"#,
+        )
+        .await?;
+    let mut boss_task_kills: i64 = client
+        .query_one(&boss_kills_stmt, &[&group_id, &member_name, &boss_task_names])
+        .await?
+        .try_get("n")?;
+    // Same live overlay as `total_kills` above - if the in-progress task is itself a boss task,
+    // its kills should tick up immediately rather than only landing once it closes.
+    if let (Some(live_task_name), Some(live_amount_done)) =
+        (live_task.as_ref().and_then(|t| t.task_name.as_deref()), live_amount_done)
+    {
+        if slayer_boss_tasks::is_boss_task(live_task_name) {
+            boss_task_kills += live_amount_done as i64;
+        }
+    }
+
     Ok(SlayerTaskStats {
         tasks_completed,
         total_kills,
@@ -6358,6 +6381,7 @@ WHERE group_id=$1 AND member_name=$2 AND lower(task_name) = ANY($3)
         fastest_completed_task,
         most_common_boss_task,
         boss_tasks_count,
+        boss_task_kills,
     })
 }
 

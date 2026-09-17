@@ -290,6 +290,9 @@ pub struct SlayerTaskStats {
     /// Count of all-time assignments whose task_name is one of [`crate::slayer_boss_tasks`]'s
     /// assignable bosses, any status - matches `most_common_task`'s all-statuses scope.
     pub boss_tasks_count: i64,
+    /// Sum of `amount_done` across completed boss-task assignments - matches `total_kills`'s
+    /// completed-only scope (and its live in-progress overlay), unlike `boss_tasks_count` above.
+    pub boss_task_kills: i64,
 }
 
 #[derive(Deserialize)]

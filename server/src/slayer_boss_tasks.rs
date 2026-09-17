@@ -40,6 +40,9 @@ static BOSS_TASK_NAMES: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
         "zulrah",
         "phantom muspah",
         "araxxor",
+        "barrows brothers",
+        "maggot king",
+        "shellbane gryphon",
     ])
 });
 
