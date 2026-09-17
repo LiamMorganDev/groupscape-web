@@ -78,6 +78,12 @@ export class ChatDrawer extends BaseElement {
     this.messages = [];
     this.faviconBadged = false;
     this.isAdmin = false;
+    // Snapshot of {cursor, newestId} taken once per open() (see `freezeDividerSnapshot`) - null
+    // while closed. Bounds which messages the divider logic in `renderMessages` will ever
+    // consider, so a message that arrives *after* opening (sent by this tab, or live from
+    // someone else while actively watching) never gets flagged unread and flashes a "New"
+    // divider above it - it only ever marks the backlog that existed at open time.
+    this.dividerSnapshot = null;
   }
 
   html() {
@@ -152,12 +158,26 @@ export class ChatDrawer extends BaseElement {
     this.bubble.hidden = true;
     this.searchInput.focus();
     this.clearFaviconBadge();
+    this.freezeDividerSnapshot();
     this.maybeMarkRead();
   }
 
   close() {
     this.panel.hidden = true;
     this.bubble.hidden = false;
+    this.dividerSnapshot = null;
+  }
+
+  // Captured *before* `maybeMarkRead()` (called right after this, in `open()`) can advance the
+  // read cursor - so it reflects "what was unread the instant this viewing session started",
+  // not "what's still unread now". A no-op past the first call this session (drawer stays open
+  // across repeated re-renders) - `close()` is what lets the next `open()` take a fresh snapshot.
+  freezeDividerSnapshot() {
+    if (this.dividerSnapshot !== null) return;
+    this.dividerSnapshot = {
+      cursor: chatStore.lastReadMessageId(),
+      newestId: this.messages.reduce((max, m) => Math.max(max, m.messageId), 0),
+    };
   }
 
   // Visible = drawer panel open; focused = this browser tab has OS focus (Page Visibility API /
@@ -204,18 +224,22 @@ export class ChatDrawer extends BaseElement {
     );
   }
 
-  // Divider marks the boundary between messages read before this render and everything after -
-  // frozen at whatever `lastReadMessageId()` was when this ran, so it doesn't jump mid-session
-  // when `open()`'s `maybeMarkRead()` immediately advances the cursor (see that method's doc
-  // comment). Suppressed for a cursor of 0 (never read anything in this group yet - nothing
-  // "already read" to draw a boundary under) and when nothing is unread.
+  // Divider marks the boundary between messages already read before this drawer was last opened
+  // and whatever was unread at that moment - bounded above by `dividerSnapshot.newestId` (see
+  // `freezeDividerSnapshot`) so a message that arrives *while* open (this tab's own send
+  // included) never itself gets flagged unread. While closed, there's no frozen snapshot yet, so
+  // this falls back to the live cursor with no upper bound - matches what the *next* open() would
+  // freeze anyway, since nothing here is visible to flicker. Suppressed for a cursor of 0 (never
+  // read anything in this group yet - nothing "already read" to draw a boundary under) and when
+  // nothing in range is unread.
   renderMessages() {
     const filtered = this.filteredMessages();
     this.emptyState.hidden = filtered.length > 0;
     const wasScrolledToBottom = this.list.scrollHeight - this.list.scrollTop - this.list.clientHeight < 40;
 
-    const lastRead = chatStore.lastReadMessageId();
-    const firstUnreadIndex = filtered.findIndex((m) => m.messageId > lastRead);
+    const lastRead = this.dividerSnapshot ? this.dividerSnapshot.cursor : chatStore.lastReadMessageId();
+    const newestInRange = this.dividerSnapshot ? this.dividerSnapshot.newestId : Infinity;
+    const firstUnreadIndex = filtered.findIndex((m) => m.messageId > lastRead && m.messageId <= newestInRange);
     const showDivider = lastRead > 0 && firstUnreadIndex > 0;
 
     this.list.innerHTML = filtered

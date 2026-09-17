@@ -19,6 +19,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Internal: chat messages older than a week are now automatically deleted server-side instead of being kept indefinitely.
 
 ### Fixed
+- Sending a group chat message (or having one arrive while the chat window is already open) no longer briefly shows a "New" divider above it in that same window - the divider only ever marks messages that were actually unread when you opened the window.
 - Group chat now always shows your full message history from the past week when you open it, instead of sometimes appearing empty after a refresh even though nothing was actually deleted.
 - Group chat history now catches up correctly no matter which device or browser tab you're using - previously each one tracked "what you've already seen" separately, so switching devices could re-show or skip recent messages; that's now tracked on the server, per account.
 - Group chat bubble and window are now clickable on the map page - they used to be completely unresponsive there (couldn't open, close, or send a message) since the map view was silently swallowing clicks meant for it.
