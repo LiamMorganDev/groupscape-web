@@ -56,6 +56,34 @@ pub async fn require_account(req: &HttpRequest, client: &Client) -> Result<i64, 
     Ok(account.id)
 }
 
+/// Resolves the acting account from `X-Account-Authorization` and checks it is the group's
+/// literal admin (`groups.admin_account_id`), not merely a holder of some delegable permission
+/// flag. Use this instead of [`require_group_permission`] for actions that must stay with the
+/// one true admin (e.g. deleting another member's chat message) rather than being delegable via
+/// `PermissionFlags`.
+pub async fn require_group_admin(
+    req: &HttpRequest,
+    client: &Client,
+    group_id: i64,
+) -> Result<i64, ApiError> {
+    let token = req
+        .headers()
+        .get(ACCOUNT_AUTH_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or(ApiError::AccountAuthRequiredError)?;
+
+    let token_hash = session_token_hash(token);
+    let account = db::get_account_by_session_token_hash(client, &token_hash)
+        .await?
+        .ok_or(ApiError::AccountAuthRequiredError)?;
+
+    if db::get_group_admin_account_id(client, group_id).await? == Some(account.id) {
+        Ok(account.id)
+    } else {
+        Err(ApiError::PermissionDeniedError)
+    }
+}
+
 /// Same as [`require_group_permission`], but succeeds if the acting account holds *any* of
 /// `keys` - for surfaces shared by more than one permission (e.g. the member-roster section,
 /// which shows permission toggles to `ManagePermissions` holders and the colour picker to

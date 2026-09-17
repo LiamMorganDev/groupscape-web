@@ -5587,6 +5587,30 @@ RETURNING message_id, member_name, message_text, created_at
     })
 }
 
+/// Deletes a chat message. Scoped by `group_id` as well as `message_id` so a caller can never
+/// delete another group's message even if it somehow guessed the id. Returns whether a row was
+/// actually removed, so the handler can 404 rather than broadcasting a delete for a message that
+/// never existed (or was already deleted by a racing admin session).
+pub async fn delete_chat_message(
+    client: &Client,
+    group_id: i64,
+    message_id: i64,
+) -> Result<bool, ApiError> {
+    let stmt = client
+        .prepare_cached(
+            r#"
+DELETE FROM groupscape.chat_messages
+WHERE group_id = $1 AND message_id = $2
+"#,
+        )
+        .await?;
+    let deleted = client
+        .execute(&stmt, &[&group_id, &message_id])
+        .await
+        .map_err(ApiError::DeleteChatMessageError)?;
+    Ok(deleted > 0)
+}
+
 /// Advances the caller's read cursor to `message_id`, never backwards - `GREATEST` guards against
 /// a stale/out-of-order request (e.g. two of the account's sessions racing) rewinding a cursor
 /// another session already pushed further. Returns the resulting cursor value (which may be higher

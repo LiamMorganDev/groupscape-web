@@ -154,6 +154,10 @@ const SLAYER_MONSTER_ICONS = {
   "the whisperer": "the-whisperer",
   vardorvis: "vardorvis",
   "duke sucellus": "duke-sucellus",
+  // No single official "Barrows Brothers" render exists on the wiki (unlike every other boss
+  // here) - the six brothers each have their own page/chathead. Uses Ahrim's chathead as a
+  // stand-in per user choice.
+  "barrows brothers": "barrows-brothers",
   "abyssal sire": "abyssal-sire",
   "alchemical hydra": "alchemical-hydra",
   cerberus: "cerberus",

@@ -2,6 +2,14 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.8.37] - 2026-09-17
+
+### Added
+- temp
+
+### Fixed
+- temp
+
 ## [1.0.503] - 2026-09-17
 
 ### Added

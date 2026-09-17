@@ -1443,6 +1443,12 @@ impl PermissionFlags {
 #[derive(Serialize, Debug)]
 pub struct MyPermissions {
     pub member_name: Option<String>,
+    /// The literal group admin (`groups.admin_account_id`), not merely a holder of every
+    /// permission flag - `flags` already reads all-true for the admin (see
+    /// `get_effective_permission_flags`), so a delegable-permission holder can't be told apart
+    /// from the real admin through `flags` alone. Surfaces gated to the admin specifically (e.g.
+    /// deleting other members' chat messages) need this instead.
+    pub is_admin: bool,
     #[serde(flatten)]
     pub flags: PermissionFlags,
 }

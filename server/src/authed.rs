@@ -29,7 +29,8 @@ use crate::models::{
 };
 use crate::notable_npcs;
 use crate::permissions::{
-    require_account, require_any_group_permission, require_group_permission, ACCOUNT_AUTH_HEADER,
+    require_account, require_any_group_permission, require_group_admin, require_group_permission,
+    ACCOUNT_AUTH_HEADER,
 };
 use crate::progress_events;
 use crate::push;
@@ -286,18 +287,20 @@ pub async fn get_my_permissions(
         None => None,
     };
 
-    let (flags, member_name) = match account {
+    let (flags, member_name, is_admin) = match account {
         Some(account) => {
             let flags =
                 db::get_effective_permission_flags(&client, auth.group_id, account.id).await?;
             let member_name =
                 db::resolve_member_name_for_account(&client, auth.group_id, account.id).await?;
-            (flags, member_name)
+            let is_admin =
+                db::get_group_admin_account_id(&client, auth.group_id).await? == Some(account.id);
+            (flags, member_name, is_admin)
         }
-        None => (PermissionFlags::default(), None),
+        None => (PermissionFlags::default(), None, false),
     };
 
-    Ok(web::Json(MyPermissions { member_name, flags }))
+    Ok(web::Json(MyPermissions { member_name, is_admin, flags }))
 }
 
 #[put("/update-group-permissions")]
@@ -1626,6 +1629,40 @@ pub async fn mark_chat_read(
     }
 
     Ok(web::Json(MarkChatReadResponse { message_id }))
+}
+
+/// Lets the group's literal admin delete any member's chat message from the webapp chat drawer.
+/// Gated on [`require_group_admin`] rather than a delegable `PermissionKey`, so this stays with
+/// the one true admin and can't be handed out via the permissions-toggle UI - see the `is_admin`
+/// doc comment on `MyPermissions`, which the client checks before showing the delete control at
+/// all. Broadcasts a `ChatMessageDeleted` envelope so every other connected session drops the
+/// message from its own history live.
+#[delete("/delete-chat-message/{message_id}")]
+pub async fn delete_chat_message(
+    req: HttpRequest,
+    auth: Authenticated,
+    path: web::Path<i64>,
+    db_pool: web::Data<Pool>,
+    broadcast_registry: web::Data<GroupBroadcastRegistry>,
+) -> Result<HttpResponse, Error> {
+    let client: Client = db_pool.get().await.map_err(ApiError::PoolError)?;
+    require_group_admin(&req, &client, auth.group_id).await?;
+
+    let message_id = path.into_inner();
+    let deleted = db::delete_chat_message(&client, auth.group_id, message_id).await?;
+    if !deleted {
+        return Err(ApiError::ChatMessageNotFoundError.into());
+    }
+
+    let envelope = WsEnvelope::ChatMessageDeleted {
+        payload: websocket::ChatMessageDeletedPayload { message_id },
+        ts: Utc::now(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        broadcast_registry.publish(auth.group_id, json);
+    }
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 fn default_sessions_limit() -> i64 {

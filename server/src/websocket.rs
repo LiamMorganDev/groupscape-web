@@ -354,6 +354,16 @@ pub struct ChatReadPayload {
     pub message_id: i64,
 }
 
+/// Fires when a group admin deletes a message (`DELETE /delete-chat-message/{message_id}`) - lets
+/// every other connected session (plugin + other browser tabs, any member's) drop the message
+/// from its own in-memory history live, without re-fetching. Broadcast group-wide like every
+/// other `WsEnvelope` variant.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMessageDeletedPayload {
+    pub message_id: i64,
+}
+
 /// Chat flood guard - see the "Minimum flood-protection guard" spec ticket. Keyed on `account_id`
 /// (not websocket connection) so it survives reconnects, per spec. Fixed window, same shape as
 /// `AdminLoginRateLimiter`: a window resets once it's been open longer than `CHAT_RATE_LIMIT_WINDOW`
@@ -566,6 +576,10 @@ pub enum WsEnvelope {
     },
     ChatRead {
         payload: ChatReadPayload,
+        ts: DateTime<Utc>,
+    },
+    ChatMessageDeleted {
+        payload: ChatMessageDeletedPayload,
         ts: DateTime<Utc>,
     },
 }

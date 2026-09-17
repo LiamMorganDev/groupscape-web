@@ -184,6 +184,9 @@ pub enum ApiError {
     AdvanceChatReadCursorError(tokio_postgres::error::Error),
     #[from(ignore)]
     AdvanceChatDeliveryCursorError(tokio_postgres::error::Error),
+    #[from(ignore)]
+    DeleteChatMessageError(tokio_postgres::error::Error),
+    ChatMessageNotFoundError,
 }
 impl std::error::Error for ApiError {}
 fn handle_pg_error(err: &tokio_postgres::error::Error, name: &str) -> HttpResponse {
@@ -457,6 +460,12 @@ impl ResponseError for ApiError {
             }
             ApiError::AdvanceChatDeliveryCursorError(ref err) => {
                 handle_pg_error(err, "AdvanceChatDeliveryCursorError")
+            }
+            ApiError::DeleteChatMessageError(ref err) => {
+                handle_pg_error(err, "DeleteChatMessageError")
+            }
+            ApiError::ChatMessageNotFoundError => {
+                HttpResponse::NotFound().body("Chat message not found")
             }
         }
     }

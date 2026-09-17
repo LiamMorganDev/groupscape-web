@@ -259,6 +259,7 @@ async fn main() -> std::io::Result<()> {
             .service(authed::get_chat_messages)
             .service(authed::send_chat_message)
             .service(authed::mark_chat_read)
+            .service(authed::delete_chat_message)
             .service(authed::rename_group)
             .service(authed::reroll_group_token)
             .service(authed::delete_group)
