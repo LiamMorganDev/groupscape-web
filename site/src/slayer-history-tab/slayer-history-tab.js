@@ -174,6 +174,20 @@ export class SlayerHistoryTab extends BaseElement {
     this.pagerStatus.innerHTML = `<strong>${this.page}</strong> / ${this.totalPages}`;
   }
 
+  renderBossBadge(taskName) {
+    if (!slayerData.isBossTask(taskName)) return "";
+    return `
+      <span class="slayer-history-tab__boss-badge" title="Boss task">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C7 2 4 5.5 4 10c0 3 1.6 5 3 6.2V19a1 1 0 0 0 1 1h1.5v-2h1v2h3v-2h1v2H16a1 1 0 0 0 1-1v-2.8c1.4-1.2 3-3.2 3-6.2 0-4.5-3-8-8-8Z" fill="currentColor"/>
+          <circle cx="9" cy="10" r="1.4" fill="#2a1208"/>
+          <circle cx="15" cy="10" r="1.4" fill="#2a1208"/>
+        </svg>
+        Boss
+      </span>
+    `;
+  }
+
   renderModifierBadge(entry) {
     const icon = slayerData.modifierIconUrl(entry.modifierType, entry.modifierNegative);
     if (!icon) return "";
@@ -222,6 +236,7 @@ export class SlayerHistoryTab extends BaseElement {
               <a class="slayer-history-tab__name" href="${taskWikiUrl}" target="_blank" rel="noopener noreferrer" title="View ${
       entry.taskName
     } on the wiki">${entry.taskName}</a>
+              ${this.renderBossBadge(entry.taskName)}
               ${this.renderModifierBadge(entry)}
             </span>
             <span class="${pointsCls}">${pointsLabel}</span>

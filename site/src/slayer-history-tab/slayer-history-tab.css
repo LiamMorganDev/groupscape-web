@@ -116,6 +116,29 @@ slayer-history-tab {
   flex: 1;
 }
 
+.slayer-history-tab__boss-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 1.5px 5px 1.5px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 67, 42, 0.5);
+  background: rgba(196, 67, 42, 0.14);
+  color: #ff8a5c;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-shadow: none;
+}
+
+.slayer-history-tab__boss-badge svg {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
 .slayer-history-tab__modifier {
   position: relative;
   display: inline-flex;

@@ -12,6 +12,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Group admins can now delete other members' messages from the group chat.
 - Group admins can now clear a group's entire chat history in one click, instead of deleting messages one at a time.
 - Maggot King and Shellbane Gryphon boss tasks now show an icon in your Slayer Stats.
+- Boss slayer tasks now show a "Boss" badge next to the task name, both on your current task and in your task history.
 
 ### Changed
 - Chat bubble icon no longer has a square border around its circular background.

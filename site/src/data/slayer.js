@@ -192,6 +192,48 @@ const SLAYER_MONSTER_ICONS = {
 
 const UNKNOWN_TASK_ICON = "/icons/slayer/monsters/unknown-task.png";
 
+// Every boss assignable via the generic "Boss" slayer task - mirrors the server's
+// slayer_boss_tasks::BOSS_TASK_NAMES (the ~35-boss subset of SLAYER_MONSTER_ICONS above). Kept as
+// a separate list rather than deriving it from SLAYER_MONSTER_ICONS since that map also holds
+// every regular (non-boss) task; kept in sync manually with the Rust copy.
+const BOSS_TASK_NAMES = new Set([
+  "the leviathan",
+  "the whisperer",
+  "vardorvis",
+  "duke sucellus",
+  "abyssal sire",
+  "alchemical hydra",
+  "cerberus",
+  "thermonuclear smoke devil",
+  "kraken",
+  "grotesque guardians",
+  "dagannoth rex",
+  "dagannoth prime",
+  "dagannoth supreme",
+  "kalphite queen",
+  "giant mole",
+  "sarachnis",
+  "k'ril tsutsaroth",
+  "kree'arra",
+  "commander zilyana",
+  "general graardor",
+  "vet'ion",
+  "callisto",
+  "venenatis",
+  "scorpia",
+  "chaos elemental",
+  "chaos fanatic",
+  "crazy archaeologist",
+  "king black dragon",
+  "vorkath",
+  "zulrah",
+  "phantom muspah",
+  "araxxor",
+  "barrows brothers",
+  "maggot king",
+  "shellbane gryphon",
+]);
+
 // Mortimer task modifiers - see server's SlayerTask::modifier_type doc comment. Only "quantity"
 // has an up/down pair (task size can go either way); the other 4 are always positive boosts, so
 // they share one icon regardless of modifierNegative.
@@ -242,6 +284,12 @@ class SlayerData {
   taskIconUrl(taskName) {
     const key = resolveMonsterKey(taskName);
     return key ? `/icons/slayer/monsters/${key}.png` : UNKNOWN_TASK_ICON;
+  }
+
+  // Whether `taskName` is one of the generic-"Boss"-task assignments - matches the server's
+  // slayer_boss_tasks::is_boss_task.
+  isBossTask(taskName) {
+    return BOSS_TASK_NAMES.has(normalize(taskName));
   }
 
   taskWikiUrl(taskName) {
