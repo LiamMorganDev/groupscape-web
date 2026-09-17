@@ -927,11 +927,12 @@ pub fn dispatch_event_webhook(
                 // as the activity feed (`notable_npcs`).
                 if settings.notify_kills && notable_npcs::is_notable(&kill.npc_name) {
                     let description = format!(
-                        "{} killed [{}]({}){}",
+                        "{} killed [{}]({}){}{}",
                         member_name,
                         kill.npc_name,
                         wiki_url(&kill.npc_name),
-                        kill.sub_kills_suffix()
+                        kill.sub_kills_suffix(),
+                        kill.delve_level_suffix()
                     );
                     // A combo kill ("Barrows"/"Moons of Peril") has no KC of its own to report -
                     // only its individual sub-bosses do, and those are tracked silently (excluded

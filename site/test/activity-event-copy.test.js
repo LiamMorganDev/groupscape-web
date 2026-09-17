@@ -46,6 +46,18 @@ describe("activity event copy", () => {
     );
   });
 
+  it("describes a Doom of Mokhaiotl kill with the delve level reached", () => {
+    expect(
+      activityEventDescription(
+        event("kill", { npcName: "Doom of Mokhaiotl", delveLevel: 5, loot: [{ item_id: 1 }] })
+      )
+    ).toBe("Bandos killed Doom of Mokhaiotl (left at level 5)");
+    // Falls back to an ordinary kill description when the widget scrape missed the level.
+    expect(
+      activityEventDescription(event("kill", { npcName: "Doom of Mokhaiotl", loot: [{ item_id: 1 }] }))
+    ).toBe("Bandos killed Doom of Mokhaiotl");
+  });
+
   it("describes a quest completion by resolving the id against the loaded quest data", () => {
     Quest.questData = { 12: { name: "Dragon Slayer II" } };
 

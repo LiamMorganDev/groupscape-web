@@ -202,6 +202,7 @@ async fn regenerate_history(client: &Client, group_id: i64) -> Result<(), ApiErr
                     account_kc: None,
                     event_id: None,
                     sub_kills: None,
+                    delve_level: None,
                 });
                 insert_backdated_event(client, group_id, session_id, member_name, &event, occurred_at)
                     .await?;

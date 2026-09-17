@@ -287,12 +287,17 @@ export function activityEventDescription(event, format = {}) {
       // "Moons of Peril (Eclipse, Blood)".
       const subKills = payload.subKills || payload.sub_kills;
       const subKillsSuffix = subKills?.length ? ` (${subKills.join(", ")})` : "";
+      // Doom of Mokhaiotl only (see `KillEvent::delve_level` server-side): the plugin ships one
+      // entry per delve run, for the level reached when rewards were claimed - absent if the
+      // reward widget scrape missed it, in which case this just reads like an ordinary kill.
+      const delveLevel = payload.delveLevel ?? payload.delve_level;
+      const delveLevelSuffix = delveLevel != null ? ` (left at level ${delveLevel})` : "";
       return `${member} killed ${wrapSubject(
         npc || "an NPC",
         "monster",
         npc && npcWikiUrl(npc),
         bossIconFor(npc)
-      )}${subKillsSuffix}${count > 1 ? ` &times;${count}` : ""}${noLoot ? " — no loot" : ""}`;
+      )}${subKillsSuffix}${delveLevelSuffix}${count > 1 ? ` &times;${count}` : ""}${noLoot ? " — no loot" : ""}`;
     }
     case "death": {
       const killer = payload.killerName || payload.killer_name;

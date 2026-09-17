@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.504] - 2026-09-17
+
+### Changed
+- A Doom of Mokhaiotl run now shows up once in your loot log and activity feed, when you claim rewards and leave, instead of once per level cleared along the way - and it now shows the level you left at.
+
 ## [1.0.503] - 2026-09-17
 
 ### Added

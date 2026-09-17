@@ -474,6 +474,12 @@ pub struct KillEvent {
     /// server model/message path.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sub_kills: Option<Vec<String>>,
+    /// Set only for the single synthesized "Doom of Mokhaiotl" kill the plugin ships per delve
+    /// run (`npc_name` "Doom of Mokhaiotl") - the delve level reached when the player claimed
+    /// rewards and left, scraped client-side from the reward widget. Absent for every other kill,
+    /// and absent even for a Doom kill if that scrape didn't find a level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delve_level: Option<i32>,
 }
 impl KillEvent {
     /// `" (Eclipse, Blood, Blue)"`-style suffix for a combo kill's `sub_kills`, empty string for
@@ -484,6 +490,15 @@ impl KillEvent {
         match &self.sub_kills {
             Some(labels) if !labels.is_empty() => format!(" ({})", labels.join(", ")),
             _ => String::new(),
+        }
+    }
+
+    /// `" (left at level 5)"`-style suffix for a Doom of Mokhaiotl kill's `delve_level`, empty
+    /// string otherwise.
+    pub fn delve_level_suffix(&self) -> String {
+        match self.delve_level {
+            Some(level) => format!(" (left at level {})", level),
+            None => String::new(),
         }
     }
 }
