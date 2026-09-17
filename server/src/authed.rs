@@ -1736,6 +1736,7 @@ const EXCLUDED_LOOT_LOG_NPC_NAMES: &[&str] = &[
     "Akkha",
     "Kephri",
     "Zebak",
+    "Tumeken's Warden",
 ];
 
 fn is_excluded_loot_log_source(source_name: &str) -> bool {

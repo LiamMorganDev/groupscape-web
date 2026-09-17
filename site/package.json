@@ -1,6 +1,6 @@
 {
   "name": "groupscape",
-  "version": "1.0.510",
+  "version": "1.0.511",
   "description": "",
   "dependencies": {
     "three": "^0.169.0"
@@ -48,6 +48,8 @@
     "detect-bosses": "node scripts/osrs-data/detect-new-bosses.mjs",
     "detect-quests": "node scripts/osrs-data/detect-new-quests.mjs",
     "detect-ca-tasks": "node scripts/osrs-data/detect-new-ca-tasks.mjs",
+    "detect-diary-tasks": "node scripts/osrs-data/detect-new-diary-tasks.mjs",
+    "detect-slayer-tasks": "node scripts/osrs-data/detect-new-slayer-tasks.mjs",
     "prepare": "cd .. && husky install site/.husky",
     "version:bump": "node scripts/bump-version.js && git add package.json",
     "precommit": "npm run version:bump && npm run format:check && npm run lint"
