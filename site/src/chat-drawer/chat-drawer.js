@@ -205,11 +205,15 @@ export class ChatDrawer extends BaseElement {
     this.list.innerHTML = filtered
       .map((m) => {
         const name = m.memberName ? escapeHtml(m.memberName) : "System";
+        const icon =
+          m.memberName && groupData.members.has(m.memberName)
+            ? `<player-icon player-name="${escapeHtml(m.memberName)}"></player-icon>`
+            : "";
         const text = highlight(escapeHtml(m.text), this.searchQuery.trim());
         return `
           <div class="chat-drawer__message">
             <span class="chat-drawer__message-time">${formatTime(m.createdAt)}</span>
-            <span class="chat-drawer__message-name" style="color: ${memberColor(m.memberName)}">${name}:</span>
+            <span class="chat-drawer__message-name" style="color: ${memberColor(m.memberName)}">${icon}${name}:</span>
             <span class="chat-drawer__message-text">${text}</span>
           </div>
         `;

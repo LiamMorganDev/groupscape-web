@@ -7,6 +7,9 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Added
 - Group chat now remembers what you've already read across every device and browser tab you're signed into. Read a message on your phone or in one tab, and the "new message" dot clears everywhere else that's open and focused - no more re-reading the same messages on every device.
 
+### Changed
+- Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
+
 ## [1.0.502] - 2026-09-17
 
 ### Added

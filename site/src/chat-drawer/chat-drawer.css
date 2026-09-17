@@ -137,6 +137,11 @@ chat-drawer {
   font-weight: bold;
 }
 
+.chat-drawer__message-name player-icon {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
 .chat-drawer__message-text mark {
   background: var(--chat-accent-soft);
   color: var(--chat-accent);
