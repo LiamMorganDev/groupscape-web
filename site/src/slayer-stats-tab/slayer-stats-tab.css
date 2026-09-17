@@ -146,6 +146,26 @@ slayer-stats-tab {
   text-align: center;
 }
 
+.slayer-stats-tab__tile--boss-combo {
+  padding: 0;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.slayer-stats-tab__boss-combo-row {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.slayer-stats-tab__boss-combo-row + .slayer-stats-tab__boss-combo-row {
+  border-top: 1px solid hsl(40deg 15.79% 22%);
+}
+
 .slayer-stats-tab__rate-row {
   display: flex;
   align-items: center;

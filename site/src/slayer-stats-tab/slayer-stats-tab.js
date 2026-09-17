@@ -184,6 +184,21 @@ export class SlayerStatsTab extends BaseElement {
     `;
   }
 
+  renderBossCombinedTile(tasksCount, killsCount) {
+    return `
+      <div class="slayer-stats-tab__tile slayer-stats-tab__tile--boss-combo">
+        <div class="slayer-stats-tab__boss-combo-row">
+          <span class="slayer-stats-tab__total-n">${tasksCount.toLocaleString()}</span>
+          <span class="slayer-stats-tab__total-l">Boss tasks</span>
+        </div>
+        <div class="slayer-stats-tab__boss-combo-row">
+          <span class="slayer-stats-tab__total-n">${killsCount.toLocaleString()}</span>
+          <span class="slayer-stats-tab__total-l">Boss task kills</span>
+        </div>
+      </div>
+    `;
+  }
+
   renderBody() {
     const s = this.stats;
     if (!s) return `<div class="slayer-stats-tab__loading">Loading&hellip;</div>`;
@@ -222,8 +237,7 @@ export class SlayerStatsTab extends BaseElement {
         ${this.renderModifierTile(s.most_common_modifier)}
         ${this.renderFastestTile(s.fastest_completed_task)}
         ${this.renderLeaderTile(s.most_common_boss_task, "Most common boss task", " times", false)}
-        ${this.renderCountTile("Boss tasks", s.boss_tasks_count)}
-        ${this.renderCountTile("Boss task kills", s.boss_task_kills)}
+        ${this.renderBossCombinedTile(s.boss_tasks_count, s.boss_task_kills)}
       </div>
     `;
   }

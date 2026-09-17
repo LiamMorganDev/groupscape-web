@@ -17,6 +17,7 @@ All notable changes to GroupScape web are logged here, newest first.
 - Chat messages now show each sender's helmet icon in their GroupScape color next to their name, not just colored text.
 - Internal: the OSRS data-refresh tooling can now also detect achievement diary task changes and new slayer task types straight from the wiki, and tracks partial drop-rate coverage for a future cleanup pass.
 - Internal: chat messages older than a week are now automatically deleted server-side instead of being kept indefinitely.
+- Slayer Stats tab now combines the boss tasks and boss task kills counts into a single tile instead of two separate ones.
 
 ### Fixed
 - Sending a group chat message (or having one arrive while the chat window is already open) no longer briefly shows a "New" divider above it in that same window - the divider only ever marks messages that were actually unread when you opened the window.
