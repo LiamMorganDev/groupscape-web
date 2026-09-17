@@ -7,6 +7,9 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Added
 - Backend groundwork for group chat (not yet visible in the app - a chat tab is coming soon).
 
+### Changed
+- Updated item names and icons for the Moon armour sets, Barrows sigils, Necklace of Fangs, and Robin Hood hat to match the OSRS Wiki's current capitalization.
+
 ## [1.0.496] - 2026-09-16
 
 ### Fixed
