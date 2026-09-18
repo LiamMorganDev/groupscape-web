@@ -1721,6 +1721,8 @@ struct LootSourceEvent {
     source_name: String,
     source_type: &'static str,
     clue_tier: Option<String>,
+    /// See [`crate::models::KillEvent::delve_level`] - only ever set for a Doom of Mokhaiotl kill.
+    delve_level: Option<i32>,
     loot: Vec<LootItem>,
 }
 /// Synthetic NPC names that have shown up in real kill/loot data from manual plugin testing -
@@ -1775,6 +1777,7 @@ fn as_loot_source_event(event: &GameEvent) -> Option<LootSourceEvent> {
             source_name: kill.npc_name.clone(),
             source_type: "kill",
             clue_tier: None,
+            delve_level: kill.delve_level,
             loot: kill.loot.clone().unwrap_or_default(),
         }),
         GameEvent::Loot(loot_event) => Some(LootSourceEvent {
@@ -1784,6 +1787,7 @@ fn as_loot_source_event(event: &GameEvent) -> Option<LootSourceEvent> {
                 crate::models::LootSourceType::Clue => "clue",
             },
             clue_tier: loot_event.clue_tier.clone(),
+            delve_level: None,
             loot: loot_event.loot.clone(),
         }),
         GameEvent::Death(_) => None,
@@ -1853,6 +1857,7 @@ mod loot_log_categories_tests {
             source_name: source_name.to_string(),
             source_type,
             clue_tier: None,
+            delve_level: None,
             loot: Vec::new(),
         }
     }
@@ -1950,6 +1955,7 @@ fn build_matching_loot_log_event(
             source_name: source.source_name.clone(),
             source_type: source.source_type.to_string(),
             clue_tier: source.clue_tier.clone(),
+            delve_level: source.delve_level,
             items,
         });
     }
@@ -2069,6 +2075,7 @@ fn build_matching_loot_log_event(
         source_name: source.source_name.clone(),
         source_type: source.source_type.to_string(),
         clue_tier: source.clue_tier.clone(),
+        delve_level: source.delve_level,
         items,
     })
 }
@@ -2079,7 +2086,7 @@ mod build_matching_loot_log_event_tests {
     use crate::models::LootItem;
 
     fn source(loot: Vec<LootItem>) -> LootSourceEvent {
-        LootSourceEvent { source_name: "Dust devil".to_string(), source_type: "kill", clue_tier: None, loot }
+        LootSourceEvent { source_name: "Dust devil".to_string(), source_type: "kill", clue_tier: None, delve_level: None, loot }
     }
 
     // Real curated drop_rates.json entries under "vorkath" - needed to exercise unique/rarity/
@@ -2087,7 +2094,7 @@ mod build_matching_loot_log_event_tests {
     // Item 11286 (Draconic visage): very_rare, unique, 1/5000. Item 383 (Raw shark): uncommon,
     // not unique, 3/300.
     fn vorkath_source(loot: Vec<LootItem>) -> LootSourceEvent {
-        LootSourceEvent { source_name: "Vorkath".to_string(), source_type: "kill", clue_tier: None, loot }
+        LootSourceEvent { source_name: "Vorkath".to_string(), source_type: "kill", clue_tier: None, delve_level: None, loot }
     }
 
     fn call(source: &LootSourceEvent, ge_prices: &crate::models::GEPrices, search: &str) -> Option<LootLogEvent> {
@@ -2242,6 +2249,7 @@ mod build_matching_loot_log_event_tests {
             source_name: "General Graardor".to_string(),
             source_type: "kill",
             clue_tier: None,
+            delve_level: None,
             loot: vec![LootItem { item_id: 1, quantity: 1 }],
         };
         let ge_prices = crate::models::GEPrices::from([(1, 10)]);

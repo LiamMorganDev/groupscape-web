@@ -493,11 +493,11 @@ impl KillEvent {
         }
     }
 
-    /// `" (left at level 5)"`-style suffix for a Doom of Mokhaiotl kill's `delve_level`, empty
+    /// `" (delve level 5)"`-style suffix for a Doom of Mokhaiotl kill's `delve_level`, empty
     /// string otherwise.
     pub fn delve_level_suffix(&self) -> String {
         match self.delve_level {
-            Some(level) => format!(" (left at level {})", level),
+            Some(level) => format!(" (delve level {})", level),
             None => String::new(),
         }
     }
@@ -1167,6 +1167,9 @@ pub struct LootLogEvent {
     pub source_type: String,
     /// "beginner".."master" - only set when `source_type` is "clue".
     pub clue_tier: Option<String>,
+    /// The Doom of Mokhaiotl delve level reached when this kill's rewards were claimed - only set
+    /// for that boss, and only when the plugin managed to read it. See [`KillEvent::delve_level`].
+    pub delve_level: Option<i32>,
     pub items: Vec<LootLogItem>,
 }
 

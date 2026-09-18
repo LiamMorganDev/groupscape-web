@@ -150,6 +150,18 @@ export function subKillsMatch(payloadA, payloadB) {
   return sortedA.every((label, i) => label === sortedB[i]);
 }
 
+// Doom of Mokhaiotl only (see `KillEvent::delve_level` server-side). Same reasoning as
+// `subKillsMatch`: a kill at a different delve level than the row/toast it would otherwise fold
+// into is a distinct run, not a repeat of the same one - merging it would keep only the first
+// event's level and misreport a level-1 and a level-4 run as "x2" of one level. Every other kind
+// of kill has `delveLevel` absent on both sides, which counts as a match so this never blocks
+// ordinary merging.
+export function delveLevelMatch(payloadA, payloadB) {
+  const a = payloadA?.delveLevel ?? payloadA?.delve_level ?? null;
+  const b = payloadB?.delveLevel ?? payloadB?.delve_level ?? null;
+  return a === b;
+}
+
 // Same self-hosted RuneLite-hiscore-style icon the loot log uses per boss (see
 // `loot-log-group.js`'s `iconUrl` getter) - null falls back to no icon for NPCs outside that set.
 export function bossIconFor(npcName) {
@@ -289,9 +301,9 @@ export function activityEventDescription(event, format = {}) {
       const subKillsSuffix = subKills?.length ? ` (${subKills.join(", ")})` : "";
       // Doom of Mokhaiotl only (see `KillEvent::delve_level` server-side): the plugin ships one
       // entry per delve run, for the level reached when rewards were claimed - absent if the
-      // reward widget scrape missed it, in which case this just reads like an ordinary kill.
+      // varp read failed, in which case this just reads like an ordinary kill.
       const delveLevel = payload.delveLevel ?? payload.delve_level;
-      const delveLevelSuffix = delveLevel != null ? ` (left at level ${delveLevel})` : "";
+      const delveLevelSuffix = delveLevel != null ? ` (delve level ${delveLevel})` : "";
       return `${member} killed ${wrapSubject(
         npc || "an NPC",
         "monster",

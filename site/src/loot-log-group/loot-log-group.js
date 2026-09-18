@@ -89,6 +89,10 @@ export class LootLogGroup extends BaseElement {
       return `${tier} clue casket`.trim();
     }
     if (group.sourceType === "kill") {
+      // Doom of Mokhaiotl only (see entryKey's delve_level fold-in) - this entry is always a
+      // single delve level's worth of kills, so name it the same way the Activity Feed and
+      // Discord already write it, rather than the unrelated "(level-X)" combat-level suffix below.
+      if (group.delveLevel != null) return `${group.sourceName} (delve level ${group.delveLevel})`;
       const level = BOSS_COMBAT_LEVELS[slugifyNpcName(group.sourceName)];
       if (level) return `${group.sourceName} (level-${level})`;
     }

@@ -63,8 +63,8 @@ describe("activity event copy", () => {
       activityEventDescription(
         event("kill", { npcName: "Doom of Mokhaiotl", delveLevel: 5, loot: [{ item_id: 1 }] })
       )
-    ).toBe("Bandos killed Doom of Mokhaiotl (left at level 5)");
-    // Falls back to an ordinary kill description when the widget scrape missed the level.
+    ).toBe("Bandos killed Doom of Mokhaiotl (delve level 5)");
+    // Falls back to an ordinary kill description when the level couldn't be read.
     expect(
       activityEventDescription(event("kill", { npcName: "Doom of Mokhaiotl", loot: [{ item_id: 1 }] }))
     ).toBe("Bandos killed Doom of Mokhaiotl");

@@ -491,8 +491,13 @@ export class LootLogPage extends BaseElement {
     return this.matchesKillCount(events.length) && this.matchesValue(events);
   }
 
+  // Doom of Mokhaiotl's delve_level is folded in alongside clue_tier so two runs at different
+  // levels never merge into one session card - a level-1 and a level-4 kill close together are
+  // as distinct as two different clue tiers, not a repeat of the same farming session.
   entryKey(event) {
-    return `${event.member_name}|${event.source_name}|${event.source_type}|${event.clue_tier || ""}`;
+    return `${event.member_name}|${event.source_name}|${event.source_type}|${event.clue_tier || ""}|${
+      event.delve_level ?? ""
+    }`;
   }
 
   buildGroupData(entry) {
@@ -502,6 +507,7 @@ export class LootLogPage extends BaseElement {
       sourceName: newest.source_name,
       sourceType: newest.source_type,
       clueTier: newest.clue_tier,
+      delveLevel: newest.delve_level,
       events: entry.events,
     };
   }

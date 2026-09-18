@@ -7,6 +7,7 @@ import {
   killGroupKey,
   KILL_MERGE_WINDOW_MS,
   subKillsMatch,
+  delveLevelMatch,
 } from "../data/activity-event-copy";
 import { pubsub } from "../data/pubsub";
 
@@ -90,6 +91,8 @@ export class ToastStack extends BaseElement {
     // A combo kill (Barrows/Moons of Peril) whose sub_kills differ from the toast it would
     // otherwise fold into is a distinct kill, not a repeat - see `subKillsMatch`.
     if (displayType === "kill" && !subKillsMatch(group.toast.event.payload, toast.event.payload)) return false;
+    // Doom of Mokhaiotl only: same reasoning, for a differing delve level - see `delveLevelMatch`.
+    if (displayType === "kill" && !delveLevelMatch(group.toast.event.payload, toast.event.payload)) return false;
     const eventTime = new Date(toast.event.occurred_at).getTime();
     const groupTime = new Date(group.toast.event.occurred_at).getTime();
     if (Math.abs(eventTime - groupTime) > KILL_MERGE_WINDOW_MS) return false;

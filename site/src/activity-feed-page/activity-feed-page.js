@@ -5,7 +5,13 @@ import { adminViewSession } from "../data/admin-view-session";
 import { confirmDialogManager } from "../confirm-dialog/confirm-dialog-manager";
 import { pubsub } from "../data/pubsub";
 import { utility } from "../utility";
-import { activityDisplayType, killGroupKey, KILL_MERGE_WINDOW_MS, subKillsMatch } from "../data/activity-event-copy";
+import {
+  activityDisplayType,
+  killGroupKey,
+  KILL_MERGE_WINDOW_MS,
+  subKillsMatch,
+  delveLevelMatch,
+} from "../data/activity-event-copy";
 
 const EVENT_TYPES = [
   [null, "All"],
@@ -326,9 +332,13 @@ export class ActivityFeedPage extends BaseElement {
       // its own breakdown (only the first event's sub_kills ever got kept) and misreport it as
       // "x2" of the earlier combo. Fall through to a fresh row instead.
       const sameSubKills = displayType !== "kill" || subKillsMatch(group?.event.payload, event.payload);
+      // Doom of Mokhaiotl only: a level-1 and a level-4 kill are as distinct as two different
+      // combo breakdowns above - see `delveLevelMatch`.
+      const sameDelveLevel = displayType !== "kill" || delveLevelMatch(group?.event.payload, event.payload);
       if (
         group &&
         sameSubKills &&
+        sameDelveLevel &&
         Math.abs(eventTime - new Date(group.event.occurred_at).getTime()) <= KILL_MERGE_WINDOW_MS
       ) {
         group.event.aggregateCount = (group.event.aggregateCount || 1) + 1;
