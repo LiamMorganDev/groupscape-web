@@ -558,11 +558,11 @@ pub struct DeathEvent {
     pub event_id: Option<String>,
 }
 impl DeathEvent {
-    /// `" (on level 5)"`-style suffix when `doom_delve_level` is set, empty string otherwise -
+    /// `" (delve level 5)"`-style suffix when `doom_delve_level` is set, empty string otherwise -
     /// mirrors [`KillEvent::delve_level_suffix`].
     pub fn doom_delve_level_suffix(&self) -> String {
         match self.doom_delve_level {
-            Some(level) => format!(" (on level {})", level),
+            Some(level) => format!(" (delve level {})", level),
             None => String::new(),
         }
     }

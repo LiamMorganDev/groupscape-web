@@ -318,7 +318,7 @@ export function activityEventDescription(event, format = {}) {
       // Doom of Mokhaiotl only (see `DeathEvent::doom_delve_level` server-side): the delve level
       // read live off the current-level varp at the moment of death. Absent outside a delve run.
       const doomDelveLevel = payload.doomDelveLevel ?? payload.doom_delve_level;
-      const levelSuffix = doomDelveLevel != null ? ` (on level ${doomDelveLevel})` : "";
+      const levelSuffix = doomDelveLevel != null ? ` (delve level ${doomDelveLevel})` : "";
       return killer
         ? `${member} died to ${wrapSubject(killer, "death", npcWikiUrl(killer))}${levelSuffix}${countSuffix}`
         : `${member} died${levelSuffix}${countSuffix}`;

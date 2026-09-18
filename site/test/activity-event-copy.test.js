@@ -51,7 +51,7 @@ describe("activity event copy", () => {
       activityEventDescription(
         event("death", { killerName: "Doom of Mokhaiotl", doomDelveLevel: 5 }, "Woox")
       )
-    ).toBe("Woox died to Doom of Mokhaiotl (on level 5)");
+    ).toBe("Woox died to Doom of Mokhaiotl (delve level 5)");
     // Falls back to an ordinary death description outside a delve run.
     expect(activityEventDescription(event("death", { killerName: "Doom of Mokhaiotl" }, "Woox"))).toBe(
       "Woox died to Doom of Mokhaiotl"

@@ -10,6 +10,7 @@ All notable changes to GroupScape web are logged here, newest first.
 ### Fixed
 - A claimed Doom of Mokhaiotl run's delve level now actually shows up in the loot log and activity feed - it was silently missing even after last-patch's fix to stop the whole run from disappearing.
 - Loot log and activity feed no longer merge two delve runs at different levels into one misleading entry (e.g. a level-1 and a level-4 run showing as one "x2" with only one of the levels) - each level now gets its own entry, even back-to-back.
+- Dying to Doom of Mokhaiotl now reads "delve level X" in the activity feed and Discord death notification, matching the kill message's wording instead of the inconsistent "on level X".
 
 ## [1.0.504] - 2026-09-17
 
