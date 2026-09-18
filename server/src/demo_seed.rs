@@ -260,6 +260,7 @@ async fn regenerate_history(client: &Client, group_id: i64) -> Result<(), ApiErr
                     world: 420,
                     occurred_at: Some(occurred_at),
                     killer_name: Some(choose(&bosses).to_string()),
+                    doom_delve_level: None,
                     event_id: None,
                 });
                 insert_backdated_event(client, group_id, session_id, member_name, &event, occurred_at)

@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.529] - 2026-09-18
+
+### Added
+- Dying to Doom of Mokhaiotl now shows which delve level you died on, in the activity feed, toast, and Discord death notification.
+
 ## [1.0.504] - 2026-09-17
 
 ### Changed

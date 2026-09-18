@@ -91,6 +91,7 @@ fn sample_kill() -> GameEvent {
         account_kc: None,
         event_id: None,
         sub_kills: None,
+        delve_level: None,
     })
 }
 
@@ -102,6 +103,7 @@ fn sample_death() -> GameEvent {
         world: 420,
         occurred_at: None,
         killer_name: Some("Zulrah".to_string()),
+        doom_delve_level: None,
         event_id: None,
     })
 }
@@ -293,6 +295,7 @@ async fn test_kill_event_without_loot_round_trips() {
         account_kc: None,
         event_id: None,
         sub_kills: None,
+        delve_level: None,
     });
     db::insert_activity_event(&client, group_id, session_id, "Zezima", &kill_without_loot)
         .await
@@ -331,6 +334,7 @@ async fn test_insert_activity_event_is_idempotent_on_matching_event_id() {
         account_kc: None,
         event_id: Some("replayed-kill-1".to_string()),
         sub_kills: None,
+        delve_level: None,
     });
 
     let first_insert = db::insert_activity_event(&client, group_id, session_id, "Zezima", &kill)
@@ -376,6 +380,7 @@ async fn test_list_activity_events_hides_non_notable_kills_but_keeps_all_deaths(
         account_kc: None,
         event_id: None,
         sub_kills: None,
+        delve_level: None,
     });
     let boss_kill = sample_kill();
     let death_by_ordinary_npc = GameEvent::Death(DeathEvent {
@@ -385,6 +390,7 @@ async fn test_list_activity_events_hides_non_notable_kills_but_keeps_all_deaths(
         world: 301,
         occurred_at: None,
         killer_name: Some("Cow".to_string()),
+        doom_delve_level: None,
         event_id: None,
     });
 
@@ -735,6 +741,7 @@ fn metric_sample_kill(npc_name: &str, loot_item_id: i32) -> GameEvent {
         account_kc: None,
         event_id: None,
         sub_kills: None,
+        delve_level: None,
     })
 }
 

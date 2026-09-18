@@ -1043,9 +1043,12 @@ pub fn dispatch_event_webhook(
                             log::warn!("discord: failed to load death count: {}", err);
                             0
                         });
+                    let level_suffix = death.doom_delve_level_suffix();
                     let description = match &killer {
-                        Some(killer) => format!("{} died to [{}]({})", member_name, killer, wiki_url(killer)),
-                        None => format!("{} died", member_name),
+                        Some(killer) => {
+                            format!("{} died to [{}]({}){}", member_name, killer, wiki_url(killer), level_suffix)
+                        }
+                        None => format!("{} died{}", member_name, level_suffix),
                     };
                     let fields = vec![("Deaths".to_string(), count.to_string())];
                     let thumbnail = killer.as_deref().map(|killer| boss_icon_url(&web_origin, killer));

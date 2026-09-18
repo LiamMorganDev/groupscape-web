@@ -548,9 +548,24 @@ pub struct DeathEvent {
     /// "killed by" fact, so this is `None` rather than defaulted to any placeholder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub killer_name: Option<String>,
+    /// The Doom of Mokhaiotl delve level the player was on when they died, read live client-side
+    /// from `VarPlayerID.DOM_CURRENT_LEVEL_TEMP` at death time. `None` for every death outside a
+    /// delve run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doom_delve_level: Option<i32>,
     /// See [`KillEvent::event_id`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<String>,
+}
+impl DeathEvent {
+    /// `" (on level 5)"`-style suffix when `doom_delve_level` is set, empty string otherwise -
+    /// mirrors [`KillEvent::delve_level_suffix`].
+    pub fn doom_delve_level_suffix(&self) -> String {
+        match self.doom_delve_level {
+            Some(level) => format!(" (on level {})", level),
+            None => String::new(),
+        }
+    }
 }
 
 /// The three raid instances tracked for completion events. `Display` renders the wiki-style
