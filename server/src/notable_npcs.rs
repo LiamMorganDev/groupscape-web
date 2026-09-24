@@ -157,6 +157,10 @@ static NOTABLE_NPCS: LazyLock<HashSet<String>> = LazyLock::new(|| {
         "Glough",
         "Dad",
         "Agrith-Na-Na",
+        // 2026-09 wiki data-refresh: newly classified as notable quest bosses.
+        "Me",
+        "Evil spirit",
+        "Tree spirit",
     ];
     names.drain(..).map(slugify_npc_name).collect()
 });
