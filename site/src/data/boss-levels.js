@@ -126,4 +126,10 @@ export const BOSS_COMBAT_LEVELS = {
   glough: 431,
   dad: 101,
   agrith_na_na: 146,
+  me: 79,
+  evil_spirit: 150,
+  tree_spirit: 101,
+  // Backfilled: already in NOTABLE_NPCS (paired with Dusk as the Grotesque Guardians) but had
+  // no single combat level here - unlike Dusk, Dawn has one fixed form/level.
+  dawn: 228,
 };

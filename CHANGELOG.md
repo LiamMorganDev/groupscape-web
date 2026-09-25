@@ -2,6 +2,15 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.533] - 2026-09-24
+
+### Added
+- Killing Me, the Evil Spirit, or the Tree Spirit during their respective quests now shows up as a notable kill in the group's activity feed, like other quest bosses.
+- Dawn kills now show her combat level in the loot log, matching most other bosses.
+
+### Changed
+- Refreshed item data and icons from the OSRS Wiki, including updated Sigil item artwork.
+
 ## [1.0.529] - 2026-09-18
 
 ### Added
