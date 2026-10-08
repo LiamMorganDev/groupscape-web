@@ -2,6 +2,14 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.534] - 2026-10-08
+
+### Added
+- Killing an Arzinian Avatar (of Magic, Ranging, or Strength) or the Arzinian Being of Bordanzan during the Between a Rock... quest now shows up as a notable kill in the group's activity feed, like other quest bosses.
+
+### Changed
+- Refreshed item data from the OSRS Wiki, including the new Net trap item.
+
 ## [1.0.533] - 2026-09-24
 
 ### Added

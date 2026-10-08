@@ -161,6 +161,11 @@ static NOTABLE_NPCS: LazyLock<HashSet<String>> = LazyLock::new(|| {
         "Me",
         "Evil spirit",
         "Tree spirit",
+        // 2026-10 wiki data-refresh: Between a Rock... quest bosses, newly classified as notable.
+        "Arzinian Being of Bordanzan",
+        "Arzinian Avatar of Magic",
+        "Arzinian Avatar of Ranging",
+        "Arzinian Avatar of Strength",
     ];
     names.drain(..).map(slugify_npc_name).collect()
 });
