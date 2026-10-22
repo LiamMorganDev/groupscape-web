@@ -2,6 +2,15 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.535] - 2026-10-22
+
+### Added
+- Added the new items from The Fractured Archive raid (Ascension bolts, crossbow, and shards, Diamond/Onyx ascension bolts, Horn of Bran, Obligator, Rondache, and Zorya's tome).
+- Killing the Judge of Yama during the A Kingdom Divided quest now shows up as a notable kill in the group's activity feed, like other quest bosses.
+
+### Changed
+- Refreshed item data and icons from the OSRS Wiki after this week's release of The Fractured Archive raid.
+
 ## [1.0.534] - 2026-10-08
 
 ### Added
