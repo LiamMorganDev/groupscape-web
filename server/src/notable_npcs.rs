@@ -166,6 +166,8 @@ static NOTABLE_NPCS: LazyLock<HashSet<String>> = LazyLock::new(|| {
         "Arzinian Avatar of Magic",
         "Arzinian Avatar of Ranging",
         "Arzinian Avatar of Strength",
+        // 2026-10-22 wiki data-refresh: newly classified as a notable quest boss.
+        "Judge of Yama",
     ];
     names.drain(..).map(slugify_npc_name).collect()
 });

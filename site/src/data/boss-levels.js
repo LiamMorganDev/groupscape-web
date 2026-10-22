@@ -132,4 +132,6 @@ export const BOSS_COMBAT_LEVELS = {
   // Backfilled: already in NOTABLE_NPCS (paired with Dusk as the Grotesque Guardians) but had
   // no single combat level here - unlike Dusk, Dawn has one fixed form/level.
   dawn: 228,
+  // 2026-10-22 wiki data-refresh: newly classified as a notable quest boss (see NOTABLE_NPCS).
+  judge_of_yama: 168,
 };
