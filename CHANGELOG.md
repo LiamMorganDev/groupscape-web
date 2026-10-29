@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.535] - 2026-10-29
+
+### Changed
+- Refreshed item data from the OSRS Wiki, including new items from The Fractured Archive raid (Ascension crossbow and bolts, Zorya's tome, Horn of Bran, Obligator, Rondache).
+
 ## [1.0.534] - 2026-10-08
 
 ### Added
