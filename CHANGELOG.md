@@ -2,6 +2,11 @@
 
 All notable changes to GroupScape web are logged here, newest first.
 
+## [1.0.536] - 2026-11-05
+
+### Changed
+- Refreshed item data from the OSRS Wiki, including the new Amulet of sight and the renamed bronze-to-dragon/white shortswords (formerly "swords"), plus an updated Discord item icon map.
+
 ## [1.0.535] - 2026-10-29
 
 ### Changed
